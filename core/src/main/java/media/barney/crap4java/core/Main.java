@@ -17,11 +17,11 @@ public final class Main {
                                               Path projectRoot,
                                               PrintStream out,
                                               PrintStream err) throws Exception {
-        return run(args, projectRoot, out, err, new CoverageRunner((command, directory) -> 0));
+        return run(args, projectRoot, out, err, new CoverageRunner((command, directory) -> 0), true);
     }
 
     public static int run(String[] args, Path projectRoot, PrintStream out, PrintStream err) throws Exception {
-        return run(args, projectRoot, out, err, new CoverageRunner(new ProcessCommandExecutor()));
+        return run(args, projectRoot, out, err, new CoverageRunner(new ProcessCommandExecutor()), false);
     }
 
     static int run(String[] args,
@@ -29,17 +29,26 @@ public final class Main {
                    PrintStream out,
                    PrintStream err,
                    CoverageRunner coverageRunner) throws Exception {
-        return new CliApplication(projectRoot, out, err, coverageRunner).execute(args);
+        return run(args, projectRoot, out, err, coverageRunner, false);
+    }
+
+    static int run(String[] args,
+                   Path projectRoot,
+                   PrintStream out,
+                   PrintStream err,
+                   CoverageRunner coverageRunner,
+                   boolean useExistingCoverage) throws Exception {
+        return new CliApplication(projectRoot, out, err, coverageRunner, useExistingCoverage).execute(args);
     }
 
     static String usage() {
         return """
                 Usage:
-                  crap4java                                Analyze all Java files under src/
-                  crap4java --changed                      Analyze changed Java files under src/
+                  crap4java                                Analyze all Java files under src/main/java/
+                  crap4java --changed                      Analyze changed Java files under src/main/java/
                   crap4java --build-tool gradle           Force Gradle for all resolved modules
                   crap4java --build-tool maven --changed  Force Maven for changed files
-                  crap4java <path...>                     Analyze files, or for directory args analyze <dir>/**/src/**/*.java
+                  crap4java <path...>                     Analyze files, or for directory args analyze <dir>/**/src/main/java/**/*.java
                   crap4java --help                        Print this help message
                 """;
     }

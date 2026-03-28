@@ -122,6 +122,52 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageKeepsTheExistingJacocoXml() throws Exception {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'workspace'");
+        Files.writeString(tempDir.resolve("build.gradle"), "plugins { id 'java' }");
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+        Path jacocoXml = tempDir.resolve("build/reports/jacoco/test/jacocoTestReport.xml");
+        Files.createDirectories(jacocoXml.getParent());
+        Files.writeString(jacocoXml, """
+                <report name="demo">
+                  <package name="demo">
+                    <class name="demo/Sample" sourcefilename="Sample.java">
+                      <method name="alpha" desc="()I" line="4">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                new String[]{"src/main/java/demo/Sample.java"},
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err)
+        );
+
+        assertEquals(0, exit);
+        assertTrue(Files.exists(jacocoXml));
+        assertTrue(out.toString().contains("100.0%"));
+        assertEquals("", err.toString());
+    }
+
+    @Test
     void maxCrapReturnsLargestNonNullScore() {
         List<MethodMetrics> metrics = List.of(
                 new MethodMetrics("alpha", "demo.Sample", 1, null, null),
