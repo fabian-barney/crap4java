@@ -5,11 +5,12 @@
 
   <groupId>media.barney</groupId>
   <artifactId>crap4java-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <packaging>pom</packaging>
 
   <name>crap4java Parent</name>
   <description>Shared CRAP metric tooling for Java projects.</description>
+  <url>https://github.com/fabian-barney/crap4java</url>
 
   <modules>
     <module>core</module>
@@ -35,6 +36,14 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Packages</name>
+      <url>https://maven.pkg.github.com/fabian-barney/crap4java</url>
+    </repository>
+  </distributionManagement>
 
   <build>
     <plugins>
