@@ -1,9 +1,16 @@
 # crap4java
 
-`crap4java` is a standalone CRAP metric tool for Java projects, modeled after `crap4clj`.
+`crap4java` is a shared CRAP metric toolkit for Java projects.
 
 It combines method cyclomatic complexity with JaCoCo method coverage and reports CRAP scores.
-On each run it deletes stale coverage artifacts, runs coverage, then analyzes the selected files.
+The current implementation still behaves like the original Maven-oriented CLI while the native Gradle and Maven plugin integrations are being built in dedicated modules.
+
+## Modules
+
+- `core`: analysis engine, CLI orchestration, and current Maven-oriented coverage runner
+- `cli`: executable entrypoint that packages the core as a runnable jar
+- `gradle-plugin`: placeholder module for the upcoming Gradle integration
+- `maven-plugin`: placeholder module for the upcoming Maven integration
 
 ## Formula
 
@@ -14,7 +21,7 @@ On each run it deletes stale coverage artifacts, runs coverage, then analyzes th
 
 ## Coverage Pipeline
 
-For each invocation:
+For each invocation today:
 
 1. Delete stale coverage artifacts:
    - `target/site/jacoco/`
@@ -31,16 +38,16 @@ mvn test
 
 ## Run
 
-Build the jar:
+Build the CLI jar:
 
 ```bash
-mvn -DskipTests package
+mvn -pl cli -am -DskipTests package
 ```
 
 From the project root you want to analyze:
 
 ```bash
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar
 ```
 
 ## CLI
@@ -56,20 +63,19 @@ java -jar target/crap4java-0.1.0-SNAPSHOT.jar
 Examples:
 
 ```bash
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar --help
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar --changed
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar src/main/java/demo/Sample.java
-java -jar target/crap4java-0.1.0-SNAPSHOT.jar module-a module-b
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar --help
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar --changed
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar src/main/java/demo/Sample.java
+java -jar cli/target/crap4java-cli-0.1.0-SNAPSHOT.jar module-a module-b
 ```
 
-## Exit codes
+## Exit Codes
 
 - `0` success, threshold respected
 - `1` invalid CLI usage
 - `2` CRAP threshold exceeded (`> 8.0`)
 
-## Notes
+## Contributing
 
-- If JaCoCo XML is missing, coverage is reported as `N/A`.
-- Report output is sorted by CRAP descending, with `N/A` at the bottom.
+See `CONTRIBUTING.md` for the issue-linked branch, commit, and PR flow used in this repository.
