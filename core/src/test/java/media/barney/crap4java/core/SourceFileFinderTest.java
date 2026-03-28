@@ -15,7 +15,7 @@ class SourceFileFinderTest {
     Path tempDir;
 
     @Test
-    void findsAllJavaFilesUnderSrcOnly() throws Exception {
+    void findsAllJavaFilesUnderProductionSourceRootsOnly() throws Exception {
         Path rootSrc = tempDir.resolve("src/main/java/demo");
         Files.createDirectories(rootSrc);
         Path inRootSrc = rootSrc.resolve("Sample.java");
@@ -26,12 +26,17 @@ class SourceFileFinderTest {
         Path inNestedSrc = nestedModuleSrc.resolve("NestedSample.java");
         Files.writeString(inNestedSrc, "class NestedSample {}\n");
 
+        Path generatedSrc = tempDir.resolve("build/generated/src/demo");
+        Files.createDirectories(generatedSrc);
+        Path generated = generatedSrc.resolve("Generated.java");
+        Files.writeString(generated, "class Generated {}\n");
+
         Path outOfSrc = tempDir.resolve("other/Elsewhere.java");
         Files.createDirectories(outOfSrc.getParent());
         Files.writeString(outOfSrc, "class Elsewhere {}\n");
 
         List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir);
 
-        assertEquals(List.of(inNestedSrc, inRootSrc), files);
+        assertEquals(List.of(inRootSrc), files);
     }
 }

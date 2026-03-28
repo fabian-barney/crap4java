@@ -61,9 +61,11 @@ class ChangedFileDetectorTest {
 
         Path mainSrc = tempDir.resolve("src/main/java/demo");
         Path moduleTestSrc = tempDir.resolve("module-a/src/test/java/demo");
+        Path nestedMainSrc = tempDir.resolve("module-b/src/main/java/demo");
         Path nonSourceTree = tempDir.resolve("test/crap4java");
         Files.createDirectories(mainSrc);
         Files.createDirectories(moduleTestSrc);
+        Files.createDirectories(nestedMainSrc);
         Files.createDirectories(nonSourceTree);
 
         Path tracked = mainSrc.resolve("Tracked.java");
@@ -74,12 +76,14 @@ class ChangedFileDetectorTest {
         Files.writeString(tracked, "class Tracked { int x = 1; }\n");
         Path nested = moduleTestSrc.resolve("NestedChanged.java");
         Files.writeString(nested, "class NestedChanged {}\n");
+        Path nestedMain = nestedMainSrc.resolve("NestedMainChanged.java");
+        Files.writeString(nestedMain, "class NestedMainChanged {}\n");
         Files.writeString(nonSourceTree.resolve("ChangedFileDetectorTest.java"), "class ChangedFileDetectorTest {}\n");
 
         List<Path> changed = ChangedFileDetector.changedJavaFilesUnderSourceRoots(tempDir);
 
         assertEquals(List.of(
-                tempDir.resolve("module-a/src/test/java/demo/NestedChanged.java"),
+                tempDir.resolve("module-b/src/main/java/demo/NestedMainChanged.java"),
                 tempDir.resolve("src/main/java/demo/Tracked.java")
         ), changed);
     }
