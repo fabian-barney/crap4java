@@ -110,10 +110,10 @@ pluginManagement {
             url = uri("https://maven.pkg.github.com/fabian-barney/crap4java")
             credentials {
                 username = providers.gradleProperty("gpr.user")
-                    .orElse(System.getenv("GITHUB_ACTOR"))
+                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
                     .get()
                 password = providers.gradleProperty("gpr.key")
-                    .orElse(System.getenv("GITHUB_TOKEN"))
+                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
                     .get()
             }
         }
