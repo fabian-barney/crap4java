@@ -1,13 +1,15 @@
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
+import org.gradle.api.publish.maven.MavenPublication
 
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
 }
 
 group = "media.barney"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 repositories {
     mavenCentral()
@@ -17,7 +19,9 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
 }
 
-val coreJar = layout.projectDirectory.file("../core/target/crap4java-core-0.1.0-SNAPSHOT.jar")
+val coreJar = layout.projectDirectory.file("../core/target/crap4java-core-0.1.0.jar")
+val githubActor = providers.gradleProperty("gpr.user").orElse(providers.environmentVariable("GITHUB_ACTOR"))
+val githubToken = providers.gradleProperty("gpr.key").orElse(providers.environmentVariable("GITHUB_TOKEN"))
 
 val verifyCoreJar = tasks.register("verifyCoreJar") {
     doLast {
@@ -50,6 +54,26 @@ tasks.named<Jar>("jar") {
     dependsOn(verifyCoreJar)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(zipTree(coreJar))
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/fabian-barney/crap4java")
+            credentials {
+                username = githubActor.orNull
+                password = githubToken.orNull
+            }
+        }
+    }
+    publications.withType<MavenPublication>().configureEach {
+        pom {
+            name.set("crap4java Gradle Plugin")
+            description.set("Gradle plugin exposing the crap4javaCheck verification task.")
+            url.set("https://github.com/fabian-barney/crap4java")
+        }
+    }
 }
 
 gradlePlugin {

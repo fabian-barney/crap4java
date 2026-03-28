@@ -6,7 +6,7 @@
   <parent>
     <groupId>media.barney</groupId>
     <artifactId>crap4java-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
 
   <packaging>maven-plugin</packaging>
