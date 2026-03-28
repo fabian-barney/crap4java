@@ -22,7 +22,6 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>5.10.2</junit.version>
-    <jacoco.version>0.8.13</jacoco.version>
   </properties>
 
   <dependencyManagement>
