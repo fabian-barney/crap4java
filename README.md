@@ -64,7 +64,7 @@ mvn -B -pl cli -am -DskipTests package
 From the project root you want to analyze:
 
 ```bash
-java -jar cli/target/crap4java-cli-0.1.1.jar
+java -jar cli/target/crap4java-cli-0.1.2.jar
 ```
 
 ## CLI
@@ -81,23 +81,23 @@ java -jar cli/target/crap4java-cli-0.1.1.jar
 Examples:
 
 ```bash
-java -jar cli/target/crap4java-cli-0.1.1.jar --help
-java -jar cli/target/crap4java-cli-0.1.1.jar
-java -jar cli/target/crap4java-cli-0.1.1.jar --changed
-java -jar cli/target/crap4java-cli-0.1.1.jar --build-tool gradle
-java -jar cli/target/crap4java-cli-0.1.1.jar --build-tool maven module-a/src/main/java/demo/Sample.java
-java -jar cli/target/crap4java-cli-0.1.1.jar src/main/java/demo/Sample.java
-java -jar cli/target/crap4java-cli-0.1.1.jar module-a module-b
+java -jar cli/target/crap4java-cli-0.1.2.jar --help
+java -jar cli/target/crap4java-cli-0.1.2.jar
+java -jar cli/target/crap4java-cli-0.1.2.jar --changed
+java -jar cli/target/crap4java-cli-0.1.2.jar --build-tool gradle
+java -jar cli/target/crap4java-cli-0.1.2.jar --build-tool maven module-a/src/main/java/demo/Sample.java
+java -jar cli/target/crap4java-cli-0.1.2.jar src/main/java/demo/Sample.java
+java -jar cli/target/crap4java-cli-0.1.2.jar module-a module-b
 ```
 
 ## GitHub Packages
 
-Release `0.1.1` publishes these coordinates to GitHub Packages:
+Release `0.1.2` publishes these coordinates to GitHub Packages:
 
-- `media.barney:crap4java-core:0.1.1`
-- `media.barney:crap4java-cli:0.1.1`
-- `media.barney:crap4java-maven-plugin:0.1.1`
-- Gradle plugin id `media.barney.crap4java` version `0.1.1`
+- `media.barney:crap4java-core:0.1.2`
+- `media.barney:crap4java-cli:0.1.2`
+- `media.barney:crap4java-maven-plugin:0.1.2`
+- Gradle plugin id `media.barney.crap4java` version `0.1.2`
 
 ### Gradle
 
@@ -127,7 +127,7 @@ Apply the plugin in `build.gradle(.kts)`:
 
 ```kotlin
 plugins {
-    id("media.barney.crap4java") version "0.1.1"
+    id("media.barney.crap4java") version "0.1.2"
 }
 ```
 
@@ -172,7 +172,7 @@ Add the plugin:
     <plugin>
       <groupId>media.barney</groupId>
       <artifactId>crap4java-maven-plugin</artifactId>
-      <version>0.1.1</version>
+      <version>0.1.2</version>
       <executions>
         <execution>
           <goals>
@@ -193,7 +193,7 @@ mvn verify
 
 ## Release
 
-Tag `v0.1.1` from `main` after the pull request checks are green. The tag-triggered release workflow publishes the Maven artifacts, publishes the Gradle plugin publications, and creates the GitHub release.
+Tag `v0.1.2` from `main` after the pull request checks are green. The tag-triggered release workflow publishes the Maven artifacts, publishes the Gradle plugin publications, and creates the GitHub release.
 
 ## Exit Codes
 
