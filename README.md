@@ -71,11 +71,11 @@ java -jar cli/target/crap4java-cli-0.1.2.jar
 
 ```text
 --help                Print usage to stdout
-(no args)             Analyze all Java files under src/main/java/
---changed             Analyze changed Java files under src/main/java/
+(no args)             Analyze all Java files under any nested src/main/java tree
+--changed             Analyze changed Java files under any nested src/main/java tree
 --build-tool <tool>   Force `auto`, `maven`, or `gradle`
 <file ...>            Analyze only these files
-<directory ...>       Analyze all Java files under each directory's nested src/main/java/ subtrees
+<directory ...>       Analyze all Java files under each directory's nested src/main/java trees
 ```
 
 Examples:

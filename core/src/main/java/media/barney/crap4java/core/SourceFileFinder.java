@@ -1,8 +1,12 @@
 package media.barney.crap4java.core;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -14,35 +18,37 @@ final class SourceFileFinder {
     private static final Path PRODUCTION_SOURCE_ROOT = Path.of("src", "main", "java");
 
     static List<Path> findAllJavaFilesUnderSourceRoots(Path projectRoot) throws IOException {
-        if (!Files.exists(projectRoot)) {
+        if (!Files.isDirectory(projectRoot)) {
             return List.of();
         }
 
-        try (var stream = Files.walk(projectRoot)) {
-            return stream
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> isUnderSourceTree(projectRoot, path))
-                    .sorted(Comparator.naturalOrder())
-                    .toList();
-        }
-    }
-
-    private static boolean isUnderSourceTree(Path projectRoot, Path file) {
-        Path normalized = projectRoot.normalize().relativize(file.normalize());
-        for (int index = 0; index <= normalized.getNameCount() - PRODUCTION_SOURCE_ROOT.getNameCount(); index++) {
-            if (matchesProductionSourceRoot(normalized, index)) {
-                return true;
+        List<Path> javaFiles = new ArrayList<>();
+        for (Path sourceRoot : productionSourceRoots(projectRoot)) {
+            try (var stream = Files.walk(sourceRoot)) {
+                stream.filter(Files::isRegularFile)
+                        .filter(path -> path.toString().endsWith(".java"))
+                        .forEach(javaFiles::add);
             }
         }
-        return false;
+        javaFiles.sort(Comparator.naturalOrder());
+        return javaFiles;
     }
 
-    private static boolean matchesProductionSourceRoot(Path relativePath, int startIndex) {
-        for (int offset = 0; offset < PRODUCTION_SOURCE_ROOT.getNameCount(); offset++) {
-            if (!PRODUCTION_SOURCE_ROOT.getName(offset).toString().equals(relativePath.getName(startIndex + offset).toString())) {
-                return false;
+    private static List<Path> productionSourceRoots(Path projectRoot) throws IOException {
+        List<Path> sourceRoots = new ArrayList<>();
+        Files.walkFileTree(projectRoot, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                if (!dir.equals(projectRoot) && ProductionSourceRoots.isSkippableDirectory(dir)) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                if (ProductionSourceRoots.isProductionSourceRoot(dir)) {
+                    sourceRoots.add(dir.normalize());
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                return FileVisitResult.CONTINUE;
             }
-        }
-        return true;
+        });
+        return sourceRoots;
     }
 }

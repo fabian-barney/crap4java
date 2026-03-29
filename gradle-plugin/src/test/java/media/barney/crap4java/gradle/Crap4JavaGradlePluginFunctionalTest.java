@@ -4,9 +4,12 @@ import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -15,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class Crap4JavaGradlePluginFunctionalTest {
 
-    @TempDir
+    @TempDir(cleanup = CleanupMode.NEVER)
     Path tempDir;
 
     @Test
@@ -156,9 +159,13 @@ class Crap4JavaGradlePluginFunctionalTest {
     }
 
     private BuildResult runBuild(String... arguments) {
+        List<String> gradleArguments = new ArrayList<>();
+        gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));
+        gradleArguments.add("-Dorg.gradle.daemon=false");
+        gradleArguments.addAll(List.of(arguments));
         return GradleRunner.create()
                 .withProjectDir(tempDir.toFile())
-                .withArguments(arguments)
+                .withArguments(gradleArguments)
                 .withPluginClasspath()
                 .build();
     }

@@ -47,6 +47,10 @@ public class Crap4JavaGradlePlugin implements Plugin<Project> {
         checkTask.configure(task -> {
             task.dependsOn(testTask);
             task.dependsOn(jacocoReportTask);
+            task.getAnalysisSources().from(candidate.fileTree(candidate.getProjectDir(), tree ->
+                    tree.include("src/main/java/**/*.java")
+            ));
+            task.getCoverageReports().from(candidate.getLayout().getBuildDirectory().file("reports/jacoco/test/jacocoTestReport.xml"));
         });
     }
 }

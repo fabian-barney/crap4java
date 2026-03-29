@@ -32,6 +32,8 @@ class ProcessCommandExecutorTest {
                 () -> executor.run(sleepCommand(), tempDir));
 
         assertTrue(error.getMessage().contains("Command timed out"));
+        assertTrue(error.getMessage().contains(Duration.ofMillis(100).toString()));
+        assertTrue(error.getMessage().contains(String.join(" ", sleepCommand())));
     }
 
     private static List<String> exitCommand(int exitCode) {

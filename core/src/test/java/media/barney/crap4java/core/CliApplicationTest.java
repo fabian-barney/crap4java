@@ -27,7 +27,7 @@ class CliApplicationTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), NOOP_COVERAGE, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), NOOP_COVERAGE, CoverageMode.GENERATE)
                 .execute(new String[]{"--changed", "src/main/java/demo/Sample.java"});
 
         assertEquals(1, exit);
@@ -39,7 +39,7 @@ class CliApplicationTest {
     void returnsZeroWhenNoFilesAreFound() throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(new ByteArrayOutputStream()), NOOP_COVERAGE, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(new ByteArrayOutputStream()), NOOP_COVERAGE, CoverageMode.GENERATE)
                 .execute(new String[0]);
 
         assertEquals(0, exit);
@@ -81,7 +81,7 @@ class CliApplicationTest {
             return 0;
         });
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, CoverageMode.GENERATE)
                 .execute(new String[]{"src/main/java/demo/Sample.java"});
 
         assertEquals(0, exit);
@@ -126,7 +126,7 @@ class CliApplicationTest {
             return 0;
         });
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, CoverageMode.GENERATE)
                 .execute(new String[]{"tools/mutate4java/src/mutate4java/Sample.java"});
 
         assertEquals(0, exit);
@@ -175,7 +175,7 @@ class CliApplicationTest {
             return 0;
         });
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, CoverageMode.GENERATE)
                 .execute(new String[]{"apps/demo/src/main/java/demo/Sample.java"});
 
         assertEquals(0, exit);
@@ -216,7 +216,7 @@ class CliApplicationTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), NOOP_COVERAGE, false)
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), NOOP_COVERAGE, CoverageMode.GENERATE)
                 .execute(new String[]{"demo/src/main/java/demo/Sample.java"});
 
         assertEquals(1, exit);
