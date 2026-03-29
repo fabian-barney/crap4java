@@ -25,7 +25,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
                 .start();
         if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroyForcibly();
-            throw new IllegalStateException("Command timed out after " + timeout.toSeconds() + " seconds: " + command.get(0));
+            throw new IllegalStateException("Command timed out after " + timeout + ": " + String.join(" ", command));
         }
         return process.exitValue();
     }

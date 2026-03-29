@@ -7,8 +7,6 @@ import java.util.List;
 
 final class ChangedFileDetector {
 
-    private static final Path PRODUCTION_SOURCE_ROOT = Path.of("src", "main", "java");
-
     private ChangedFileDetector() {
     }
 
@@ -37,7 +35,7 @@ final class ChangedFileDetector {
 
     static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot) throws IOException, InterruptedException {
         return changedJavaFiles(projectRoot).stream()
-                .filter(path -> isUnderSourceTree(projectRoot, path))
+                .filter(ProductionSourceRoots::isUnderProductionSourceRoot)
                 .toList();
     }
 
@@ -73,24 +71,5 @@ final class ChangedFileDetector {
 
     private static boolean isJavaPath(String path) {
         return path.endsWith(".java");
-    }
-
-    private static boolean isUnderSourceTree(Path projectRoot, Path file) {
-        Path normalized = projectRoot.normalize().relativize(file.normalize());
-        for (int index = 0; index <= normalized.getNameCount() - PRODUCTION_SOURCE_ROOT.getNameCount(); index++) {
-            if (matchesProductionSourceRoot(normalized, index)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean matchesProductionSourceRoot(Path relativePath, int startIndex) {
-        for (int offset = 0; offset < PRODUCTION_SOURCE_ROOT.getNameCount(); offset++) {
-            if (!PRODUCTION_SOURCE_ROOT.getName(offset).toString().equals(relativePath.getName(startIndex + offset).toString())) {
-                return false;
-            }
-        }
-        return true;
     }
 }

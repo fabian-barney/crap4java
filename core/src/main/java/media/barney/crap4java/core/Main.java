@@ -17,11 +17,11 @@ public final class Main {
                                               Path projectRoot,
                                               PrintStream out,
                                               PrintStream err) throws Exception {
-        return run(args, projectRoot, out, err, new CoverageRunner((command, directory) -> 0), true);
+        return run(args, projectRoot, out, err, new CoverageRunner((command, directory) -> 0), CoverageMode.USE_EXISTING);
     }
 
     public static int run(String[] args, Path projectRoot, PrintStream out, PrintStream err) throws Exception {
-        return run(args, projectRoot, out, err, new CoverageRunner(new ProcessCommandExecutor()), false);
+        return run(args, projectRoot, out, err, new CoverageRunner(new ProcessCommandExecutor()), CoverageMode.GENERATE);
     }
 
     static int run(String[] args,
@@ -29,7 +29,7 @@ public final class Main {
                    PrintStream out,
                    PrintStream err,
                    CoverageRunner coverageRunner) throws Exception {
-        return run(args, projectRoot, out, err, coverageRunner, false);
+        return run(args, projectRoot, out, err, coverageRunner, CoverageMode.GENERATE);
     }
 
     static int run(String[] args,
@@ -37,18 +37,18 @@ public final class Main {
                    PrintStream out,
                    PrintStream err,
                    CoverageRunner coverageRunner,
-                   boolean useExistingCoverage) throws Exception {
-        return new CliApplication(projectRoot, out, err, coverageRunner, useExistingCoverage).execute(args);
+                   CoverageMode coverageMode) throws Exception {
+        return new CliApplication(projectRoot, out, err, coverageRunner, coverageMode).execute(args);
     }
 
     static String usage() {
         return """
                 Usage:
-                  crap4java                                Analyze all Java files under src/main/java/
-                  crap4java --changed                      Analyze changed Java files under src/main/java/
+                  crap4java                                Analyze all Java files under any nested src/main/java tree
+                  crap4java --changed                      Analyze changed Java files under any nested src/main/java tree
                   crap4java --build-tool gradle           Force Gradle for all resolved modules
                   crap4java --build-tool maven --changed  Force Maven for changed files
-                  crap4java <path...>                     Analyze files, or for directory args analyze <dir>/**/src/main/java/**/*.java
+                  crap4java <path...>                     Analyze files, or for directory args analyze nested src/main/java trees under each path
                   crap4java --help                        Print this help message
                 """;
     }

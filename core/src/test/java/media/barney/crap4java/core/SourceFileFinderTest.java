@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,10 +22,15 @@ class SourceFileFinderTest {
         Path inRootSrc = rootSrc.resolve("Sample.java");
         Files.writeString(inRootSrc, "class Sample {}\n");
 
-        Path nestedModuleSrc = tempDir.resolve("module-a/src/test/java/demo");
+        Path nestedModuleSrc = tempDir.resolve("module-a/src/main/java/demo");
         Files.createDirectories(nestedModuleSrc);
-        Path inNestedSrc = nestedModuleSrc.resolve("NestedSample.java");
-        Files.writeString(inNestedSrc, "class NestedSample {}\n");
+        Path inNestedModuleSrc = nestedModuleSrc.resolve("NestedSample.java");
+        Files.writeString(inNestedModuleSrc, "class NestedSample {}\n");
+
+        Path skippedBuildSrc = tempDir.resolve("build/src/main/java/demo");
+        Files.createDirectories(skippedBuildSrc);
+        Path skippedBuildFile = skippedBuildSrc.resolve("Generated.java");
+        Files.writeString(skippedBuildFile, "class Generated {}\n");
 
         Path generatedSrc = tempDir.resolve("build/generated/src/demo");
         Files.createDirectories(generatedSrc);
@@ -36,7 +42,21 @@ class SourceFileFinderTest {
         Files.writeString(outOfSrc, "class Elsewhere {}\n");
 
         List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir);
+        List<Path> expected = new ArrayList<>(List.of(inRootSrc, inNestedModuleSrc));
+        expected.sort(Path::compareTo);
 
-        assertEquals(List.of(inRootSrc), files);
+        assertEquals(expected, files);
+    }
+
+    @Test
+    void acceptsADirectoryThatIsAlreadyAProductionSourceRoot() throws Exception {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, "class Sample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir.resolve("src/main/java"));
+
+        assertEquals(List.of(source), files);
     }
 }

@@ -17,18 +17,18 @@ final class CliApplication {
     private final PrintStream out;
     private final PrintStream err;
     private final CoverageRunner coverageRunner;
-    private final boolean useExistingCoverage;
+    private final CoverageMode coverageMode;
 
     CliApplication(Path projectRoot,
                    PrintStream out,
                    PrintStream err,
                    CoverageRunner coverageRunner,
-                   boolean useExistingCoverage) {
+                   CoverageMode coverageMode) {
         this.projectRoot = projectRoot;
         this.out = out;
         this.err = err;
         this.coverageRunner = coverageRunner;
-        this.useExistingCoverage = useExistingCoverage;
+        this.coverageMode = coverageMode;
     }
 
     int execute(String[] args) throws Exception {
@@ -67,7 +67,7 @@ final class CliApplication {
         for (Map.Entry<ProjectModule, List<Path>> entry : groupByModule(filesToAnalyze, buildToolSelection).entrySet()) {
             ProjectModule module = entry.getKey();
             Path jacocoXml = module.jacocoXmlPath();
-            if (!useExistingCoverage) {
+            if (coverageMode.shouldGenerateCoverage()) {
                 coverageRunner.generateCoverage(module);
             }
             if (!Files.exists(jacocoXml)) {

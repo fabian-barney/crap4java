@@ -21,6 +21,14 @@ public class Crap4JavaGradlePlugin implements Plugin<Project> {
                     task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
                     task.setDescription("Runs the crap4java CRAP metric gate.");
                     task.getAnalysisRoot().set(project.getLayout().getProjectDirectory());
+                    task.getAnalysisMetadata().from(
+                            project.getLayout().getProjectDirectory().file("settings.gradle"),
+                            project.getLayout().getProjectDirectory().file("settings.gradle.kts"),
+                            project.getLayout().getProjectDirectory().file("build.gradle"),
+                            project.getLayout().getProjectDirectory().file("build.gradle.kts"),
+                            project.getLayout().getProjectDirectory().file("gradlew"),
+                            project.getLayout().getProjectDirectory().file("gradlew.bat")
+                    );
                 }
         );
 
@@ -47,6 +55,14 @@ public class Crap4JavaGradlePlugin implements Plugin<Project> {
         checkTask.configure(task -> {
             task.dependsOn(testTask);
             task.dependsOn(jacocoReportTask);
+            task.getAnalysisSources().from(candidate.fileTree(candidate.getProjectDir(), tree ->
+                    tree.include("src/main/java/**/*.java")
+            ));
+            task.getCoverageReports().from(candidate.getLayout().getBuildDirectory().file("reports/jacoco/test/jacocoTestReport.xml"));
+            task.getAnalysisMetadata().from(
+                    candidate.getLayout().getProjectDirectory().file("build.gradle"),
+                    candidate.getLayout().getProjectDirectory().file("build.gradle.kts")
+            );
         });
     }
 }
