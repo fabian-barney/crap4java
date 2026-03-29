@@ -15,8 +15,6 @@ final class SourceFileFinder {
     private SourceFileFinder() {
     }
 
-    private static final Path PRODUCTION_SOURCE_ROOT = Path.of("src", "main", "java");
-
     static List<Path> findAllJavaFilesUnderSourceRoots(Path projectRoot) throws IOException {
         if (!Files.isDirectory(projectRoot)) {
             return List.of();
