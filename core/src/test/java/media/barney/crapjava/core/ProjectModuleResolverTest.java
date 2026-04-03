@@ -47,9 +47,29 @@ class ProjectModuleResolverTest {
         assertEquals(moduleRoot, module.moduleRoot());
         assertEquals(tempDir, module.executionRoot());
         assertEquals(BuildTool.GRADLE, module.buildTool());
-        assertEquals(List.of(gradleWrapperCommand(), "--no-daemon", "-q", ":apps:demo:test", ":apps:demo:jacocoTestReport"),
+        assertEquals(List.of(gradleWrapperCommand(tempDir), "--no-daemon", "-q", ":apps:demo:test", ":apps:demo:jacocoTestReport"),
                 module.coverageCommand());
         assertEquals(moduleRoot.resolve("build/reports/jacoco/test/jacocoTestReport.xml"), module.jacocoXmlPath());
+    }
+
+    @Test
+    void resolvesGradleWrapperToAbsolutePathForRelativeWorkspaceRoots() throws Exception {
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'");
+        Files.writeString(tempDir.resolve("gradlew"), "#!/bin/sh");
+        Files.writeString(tempDir.resolve("gradlew.bat"), "@echo off");
+        Path moduleRoot = tempDir.resolve("apps/demo");
+        Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
+        Files.writeString(source, "class Sample {}");
+
+        Path currentDirectory = Path.of("").toAbsolutePath().normalize();
+        Path relativeWorkspaceRoot = currentDirectory.relativize(tempDir);
+        Path relativeSource = currentDirectory.relativize(source);
+
+        ProjectModule module = ProjectModuleResolver.resolve(relativeWorkspaceRoot, relativeSource, BuildToolSelection.AUTO);
+
+        assertEquals(gradleWrapperCommand(tempDir), module.coverageCommand().get(0));
     }
 
     @Test
@@ -100,10 +120,10 @@ class ProjectModuleResolverTest {
         assertEquals("Requested build tool gradle does not match the detected module at " + moduleRoot + ".", error.getMessage());
     }
 
-    private static String gradleWrapperCommand() {
+    private static String gradleWrapperCommand(Path executionRoot) {
         if (System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
-            return "gradlew.bat";
+            return executionRoot.resolve("gradlew.bat").toString();
         }
-        return "./gradlew";
+        return executionRoot.resolve("gradlew").toString();
     }
 }
