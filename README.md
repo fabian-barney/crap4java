@@ -1,6 +1,6 @@
 # crap-java
 
-`crap-java` is a shared CRAP metric toolkit for Java projects.
+CRAP metrics for Java.
 
 It combines method cyclomatic complexity with JaCoCo method coverage and reports CRAP scores.
 The toolkit resolves Maven and Gradle modules natively, including standard multi-module layouts, and publishes a standalone CLI plus dedicated Gradle and Maven plugins.

@@ -9,7 +9,7 @@
   <packaging>pom</packaging>
 
   <name>crap-java Parent</name>
-  <description>Shared CRAP metric tooling for Java projects.</description>
+  <description>CRAP metrics for Java.</description>
   <url>https://github.com/fabian-barney/crap-java</url>
   <licenses>
     <license>
