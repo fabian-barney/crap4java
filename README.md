@@ -169,40 +169,6 @@ Run:
 mvn verify
 ```
 
-## Release
-
-Release setup:
-
-1. Verify the `media.barney` namespace in the Sonatype Central Portal.
-2. Generate a Central Portal user token.
-3. Generate a Gradle Plugin Portal API key and secret.
-4. Configure these CI secrets:
-   - `MAVEN_CENTRAL_TOKEN_USERNAME`
-   - `MAVEN_CENTRAL_TOKEN_PASSWORD`
-   - `MAVEN_GPG_PRIVATE_KEY`
-   - `MAVEN_GPG_PASSPHRASE`
-   - `GRADLE_PUBLISH_KEY`
-   - `GRADLE_PUBLISH_SECRET`
-
-Local publishing preflight:
-
-```bash
-mvn -B -Prelease -Dcentral.skipPublishing=true -pl .,cli,maven-plugin -am deploy
-```
-
-```bash
-cd gradle-plugin
-./gradlew test validatePlugins
-```
-
-Release from `main` after the pull request checks are green:
-
-1. Update the project version.
-2. Tag `v<version>`.
-3. Push the tag.
-
-The tag-triggered release workflow publishes Maven artifacts to Maven Central, publishes the Gradle plugin to the Gradle Plugin Portal, and creates the repository release entry from the matching `CHANGELOG.md` section.
-
 ## Exit Codes
 
 - `0` success, threshold respected
