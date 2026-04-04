@@ -64,7 +64,7 @@ mvn -B -pl cli -am -DskipTests package
 From the project root you want to analyze:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.2.0.jar
+java -jar cli/target/crap-java-cli-0.3.0.jar
 ```
 
 ## CLI
@@ -81,13 +81,13 @@ java -jar cli/target/crap-java-cli-0.2.0.jar
 Examples:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.2.0.jar --help
-java -jar cli/target/crap-java-cli-0.2.0.jar
-java -jar cli/target/crap-java-cli-0.2.0.jar --changed
-java -jar cli/target/crap-java-cli-0.2.0.jar --build-tool gradle
-java -jar cli/target/crap-java-cli-0.2.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.2.0.jar src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.2.0.jar module-a module-b
+java -jar cli/target/crap-java-cli-0.3.0.jar --help
+java -jar cli/target/crap-java-cli-0.3.0.jar
+java -jar cli/target/crap-java-cli-0.3.0.jar --changed
+java -jar cli/target/crap-java-cli-0.3.0.jar --build-tool gradle
+java -jar cli/target/crap-java-cli-0.3.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.3.0.jar src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.3.0.jar module-a module-b
 ```
 
 ## Distribution
@@ -171,7 +171,7 @@ mvn verify
 
 ## Release
 
-Before the first public release:
+Release setup:
 
 1. Verify the `media.barney` namespace in the Sonatype Central Portal.
 2. Generate a Central Portal user token.
@@ -201,7 +201,7 @@ Release from `main` after the pull request checks are green:
 2. Tag `v<version>`.
 3. Push the tag.
 
-The tag-triggered release workflow publishes Maven artifacts to Maven Central, publishes the Gradle plugin to the Gradle Plugin Portal, and creates the repository release entry.
+The tag-triggered release workflow publishes Maven artifacts to Maven Central, publishes the Gradle plugin to the Gradle Plugin Portal, and creates the repository release entry from the matching `CHANGELOG.md` section.
 
 ## Exit Codes
 
