@@ -1,6 +1,6 @@
 # crap-java
 
-`crap-java` is a shared CRAP metric toolkit for Java projects.
+CRAP metrics for Java.
 
 It combines method cyclomatic complexity with JaCoCo method coverage and reports CRAP scores.
 The toolkit resolves Maven and Gradle modules natively, including standard multi-module layouts, and publishes a standalone CLI plus dedicated Gradle and Maven plugins.
@@ -8,7 +8,7 @@ The toolkit resolves Maven and Gradle modules natively, including standard multi
 ## Modules
 
 - `core`: analysis engine, build-tool-neutral CLI orchestration, and Maven/Gradle coverage runner
-- `cli`: executable entrypoint that packages the core as a runnable jar
+- `cli`: executable entrypoint that bundles the core as a runnable jar
 - `gradle-plugin`: self-contained Gradle plugin build exposing `media.barney.crap-java`
 - `maven-plugin`: native Maven plugin exposing the `check` goal
 
@@ -90,46 +90,26 @@ java -jar cli/target/crap-java-cli-0.2.0.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.2.0.jar module-a module-b
 ```
 
-## GitHub Packages
+## Distribution
 
-Release `0.2.0` publishes these coordinates to GitHub Packages:
+Public releases are intended to ship through Maven Central and the Gradle Plugin Portal:
 
-- `media.barney:crap-java-core:0.2.0`
-- `media.barney:crap-java-cli:0.2.0`
-- `media.barney:crap-java-maven-plugin:0.2.0`
-- Gradle plugin id `media.barney.crap-java` version `0.2.0`
+- `media.barney:crap-java-core:<version>`
+- `media.barney:crap-java-cli:<version>`
+- `media.barney:crap-java-maven-plugin:<version>`
+- Gradle plugin id `media.barney.crap-java` version `<version>`
 
-### Gradle
-
-Configure the plugin repository in `settings.gradle(.kts)`:
-
-```kotlin
-pluginManagement {
-    repositories {
-        maven {
-            url = uri("https://maven.pkg.github.com/fabian-barney/crap-java")
-            credentials {
-                username = providers.gradleProperty("gpr.user")
-                    .orElse(providers.environmentVariable("GITHUB_ACTOR"))
-                    .get()
-                password = providers.gradleProperty("gpr.key")
-                    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
-                    .get()
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
-```
+### Gradle Plugin Portal
 
 Apply the plugin in `build.gradle(.kts)`:
 
 ```kotlin
 plugins {
-    id("media.barney.crap-java") version "0.2.0"
+    id("media.barney.crap-java") version "<version>"
 }
 ```
+
+No custom `pluginManagement` repository configuration is required for published releases.
 
 Run:
 
@@ -137,32 +117,7 @@ Run:
 ./gradlew crap-java-check
 ```
 
-### Maven
-
-Configure GitHub Packages as a plugin repository:
-
-```xml
-<pluginRepositories>
-  <pluginRepository>
-    <id>github</id>
-    <url>https://maven.pkg.github.com/fabian-barney/crap-java</url>
-  </pluginRepository>
-</pluginRepositories>
-```
-
-Authenticate Maven with a matching `github` server entry, for example in `~/.m2/settings.xml`:
-
-```xml
-<servers>
-  <server>
-    <id>github</id>
-    <username>${env.GITHUB_ACTOR}</username>
-    <password>${env.GITHUB_TOKEN}</password>
-  </server>
-</servers>
-```
-
-The token used here needs package read access.
+### Maven Central
 
 Add the plugin:
 
@@ -191,7 +146,7 @@ Add the plugin:
     <plugin>
       <groupId>media.barney</groupId>
       <artifactId>crap-java-maven-plugin</artifactId>
-      <version>0.2.0</version>
+      <version>&lt;version&gt;</version>
       <executions>
         <execution>
           <goals>
@@ -206,6 +161,8 @@ Add the plugin:
 
 The Maven plugin consumes the JaCoCo XML files produced by your build. It does not spawn a nested Maven run to generate coverage.
 
+No custom `<pluginRepositories>` or consumer-side authentication are required for published releases.
+
 Run:
 
 ```bash
@@ -214,7 +171,37 @@ mvn verify
 
 ## Release
 
-Tag `v0.2.0` from `main` after the pull request checks are green. The tag-triggered release workflow publishes the Maven artifacts, publishes the Gradle plugin publications, and creates the GitHub release.
+Before the first public release:
+
+1. Verify the `media.barney` namespace in the Sonatype Central Portal.
+2. Generate a Central Portal user token.
+3. Generate a Gradle Plugin Portal API key and secret.
+4. Configure these CI secrets:
+   - `MAVEN_CENTRAL_TOKEN_USERNAME`
+   - `MAVEN_CENTRAL_TOKEN_PASSWORD`
+   - `MAVEN_GPG_PRIVATE_KEY`
+   - `MAVEN_GPG_PASSPHRASE`
+   - `GRADLE_PUBLISH_KEY`
+   - `GRADLE_PUBLISH_SECRET`
+
+Local publishing preflight:
+
+```bash
+mvn -B -Prelease -Dcentral.skipPublishing=true -pl .,cli,maven-plugin -am deploy
+```
+
+```bash
+cd gradle-plugin
+./gradlew test validatePlugins
+```
+
+Release from `main` after the pull request checks are green:
+
+1. Update the project version.
+2. Tag `v<version>`.
+3. Push the tag.
+
+The tag-triggered release workflow publishes Maven artifacts to Maven Central, publishes the Gradle plugin to the Gradle Plugin Portal, and creates the repository release entry.
 
 ## Exit Codes
 
