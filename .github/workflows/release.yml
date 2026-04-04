@@ -73,17 +73,23 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
-          cat > release-notes.md <<EOF
-          ## Distribution
-
-          Maven Central:
-          - \`media.barney:crap-java-core:${version}\`
-          - \`media.barney:crap-java-cli:${version}\`
-          - \`media.barney:crap-java-maven-plugin:${version}\`
-
-          Gradle Plugin Portal:
-          - Plugin id \`media.barney.crap-java\` version \`${version}\`
-          EOF
+          awk -v version="${version}" '
+            $1 == "##" && $2 == version {
+              found = 1
+            }
+            found {
+              if ($1 == "##" && $2 != version) {
+                exit
+              }
+              print
+            }
+            END {
+              if (!found) {
+                exit 1
+              }
+            }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file release-notes.md
           else
