@@ -13,4 +13,8 @@
   <artifactId>crap-java-gradle-plugin-build</artifactId>
   <name>crap-java Gradle Plugin</name>
   <description>Wrapper module for the self-contained Gradle plugin build in gradle-plugin/.</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
 </project>

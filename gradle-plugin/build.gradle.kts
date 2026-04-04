@@ -1,3 +1,4 @@
+import org.gradle.plugin.compatibility.compatibility
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
@@ -6,8 +7,9 @@ import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     `java-gradle-plugin`
+    id("com.gradle.plugin-publish") version "2.1.1"
     jacoco
-    `maven-publish`
+    signing
 }
 
 group = "media.barney"
@@ -23,8 +25,8 @@ jacoco {
 
 val projectVersion = version.toString()
 val coreJar = layout.projectDirectory.file("../core/target/crap-java-core-${projectVersion}.jar")
-val githubActor = providers.gradleProperty("gpr.user").orElse(providers.environmentVariable("GITHUB_ACTOR"))
-val githubToken = providers.gradleProperty("gpr.key").orElse(providers.environmentVariable("GITHUB_TOKEN"))
+val gpgPrivateKey = providers.environmentVariable("MAVEN_GPG_PRIVATE_KEY")
+val gpgPassphrase = providers.environmentVariable("MAVEN_GPG_PASSPHRASE")
 
 val verifyCoreJar = tasks.register("verifyCoreJar") {
     doLast {
@@ -74,16 +76,6 @@ tasks.named<Jar>("jar") {
 }
 
 publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/fabian-barney/crap-java")
-            credentials {
-                username = githubActor.orNull
-                password = githubToken.orNull
-            }
-        }
-    }
     publications.withType<MavenPublication>().configureEach {
         pom {
             name.set("crap-java Gradle Plugin")
@@ -96,17 +88,44 @@ publishing {
                     distribution.set("repo")
                 }
             }
+            developers {
+                developer {
+                    id.set("fabian-barney")
+                    name.set("Fabian Barney")
+                    url.set("https://github.com/fabian-barney")
+                }
+            }
+            scm {
+                connection.set("scm:git:https://github.com/fabian-barney/crap-java.git")
+                developerConnection.set("scm:git:ssh://git@github.com/fabian-barney/crap-java.git")
+                url.set("https://github.com/fabian-barney/crap-java")
+            }
         }
     }
 }
 
+signing {
+    val key = gpgPrivateKey.orNull
+    if (!key.isNullOrBlank()) {
+        useInMemoryPgpKeys(key, gpgPassphrase.orNull)
+    }
+}
+
 gradlePlugin {
+    website.set("https://github.com/fabian-barney/crap-java")
+    vcsUrl.set("https://github.com/fabian-barney/crap-java")
     plugins {
         create("crap-java") {
             id = "media.barney.crap-java"
             implementationClass = "media.barney.crapjava.gradle.CrapJavaGradlePlugin"
             displayName = "crap-java Gradle Plugin"
             description = "Registers the crap-java-check verification task for Gradle Java projects."
+            tags.set(listOf("java", "jacoco", "quality", "metrics", "verification"))
+            compatibility {
+                features {
+                    configurationCache = false
+                }
+            }
         }
     }
 }
