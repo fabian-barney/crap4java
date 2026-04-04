@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 - 2026-04-05
+
+### Fixed
+
+- Kept published Maven artifact `url` and `scm` metadata pointed at the repository root instead of artifact-specific child paths.
+
+### Changed
+
+- Removed release-process details from the README so it stays consumer-facing.
+- Updated the contribution guide to recommend repository-neutral branch names.
+- Removed the bootstrap `spec.md` document.
+
 ## 0.3.0 - 2026-04-04
 
 ### Added
