@@ -187,7 +187,7 @@ Before the first public release:
 Local publishing preflight:
 
 ```bash
-mvn -B -Prelease -Dcentral.skipPublishing=true -pl cli,maven-plugin -am deploy
+mvn -B -Prelease -Dcentral.skipPublishing=true -pl .,cli,maven-plugin -am deploy
 ```
 
 ```bash

@@ -173,7 +173,7 @@ jobs:
           gpg --batch --pinentry-mode loopback --generate-key gpg-batch.txt
 
       - name: Run Maven publishing preflight
-        run: mvn -B -Prelease -Dcentral.skipPublishing=true -pl cli,maven-plugin -am deploy
+        run: mvn -B -Prelease -Dcentral.skipPublishing=true -pl .,cli,maven-plugin -am deploy
 
       - name: Set up Gradle wrapper permissions
         run: chmod +x gradle-plugin/gradlew

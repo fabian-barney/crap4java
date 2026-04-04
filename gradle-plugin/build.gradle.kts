@@ -108,6 +108,7 @@ signing {
     val key = gpgPrivateKey.orNull
     if (!key.isNullOrBlank()) {
         useInMemoryPgpKeys(key, gpgPassphrase.orNull)
+        sign(publishing.publications)
     }
 }
 
