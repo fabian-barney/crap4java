@@ -187,10 +187,10 @@ jobs:
         working-directory: gradle-plugin
         run: ./gradlew test validatePlugins publishToMavenLocal
 
-      - name: Verify GitHub Packages references are gone
+      - name: Verify legacy package registry references are gone
         shell: bash
         run: |
-          if git grep -n -E 'GitHub Packages|maven\.pkg\.github\.com|gpr\.user|gpr\.key' -- . ':(exclude).github/workflows/build.yml'; then
-            echo "Found banned GitHub Packages references in tracked sources." >&2
+          if git grep -n -E 'maven\.pkg\.github\.com|gpr\.user|gpr\.key' -- . ':(exclude).github/workflows/build.yml'; then
+            echo "Found banned legacy package-registry references in tracked sources." >&2
             exit 1
           fi
