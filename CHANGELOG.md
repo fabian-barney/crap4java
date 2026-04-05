@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.2 - 2026-04-05
+
+### Added
+
+- Published the Gradle plugin implementation artifact to Maven Central as a secondary channel.
+- Published the Gradle plugin marker artifact to Maven Central so Gradle builds can resolve `media.barney.crap-java` via `pluginManagement.repositories`.
+
+### Changed
+
+- Updated the release workflow to upload the Gradle plugin Maven publications through Sonatype's OSSRH compatibility endpoint and finalize the deployment automatically.
+- Expanded publishing preflight to build and sign the Gradle plugin's Maven publications locally.
+- Documented the Maven Central plugin-consumption path in the README for use before Plugin Portal approval completes.
+
 ## 0.3.1 - 2026-04-05
 
 ### Fixed

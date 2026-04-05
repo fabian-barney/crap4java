@@ -171,6 +171,11 @@ jobs:
           %commit
           EOF
           gpg --batch --pinentry-mode loopback --generate-key gpg-batch.txt
+          {
+            echo "MAVEN_GPG_PRIVATE_KEY<<EOF"
+            gpg --batch --pinentry-mode loopback --passphrase "${MAVEN_GPG_PASSPHRASE}" --armor --export-secret-keys preflight@example.com
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Run Maven publishing preflight
         run: mvn -B -Prelease -Dcentral.skipPublishing=true -pl .,cli,maven-plugin -am deploy
@@ -180,7 +185,7 @@ jobs:
 
       - name: Validate Gradle plugin publication metadata
         working-directory: gradle-plugin
-        run: ./gradlew test validatePlugins
+        run: ./gradlew test validatePlugins publishToMavenLocal
 
       - name: Verify GitHub Packages references are gone
         shell: bash

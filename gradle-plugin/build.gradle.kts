@@ -13,7 +13,7 @@ plugins {
 }
 
 group = "media.barney"
-version = "0.3.1"
+version = "0.3.2"
 
 repositories {
     mavenCentral()
@@ -27,6 +27,10 @@ val projectVersion = version.toString()
 val coreJar = layout.projectDirectory.file("../core/target/crap-java-core-${projectVersion}.jar")
 val gpgPrivateKey = providers.environmentVariable("MAVEN_GPG_PRIVATE_KEY")
 val gpgPassphrase = providers.environmentVariable("MAVEN_GPG_PASSPHRASE")
+val mavenCentralTokenUsername = providers.gradleProperty("mavenCentralTokenUsername")
+    .orElse(providers.environmentVariable("MAVEN_CENTRAL_TOKEN_USERNAME"))
+val mavenCentralTokenPassword = providers.gradleProperty("mavenCentralTokenPassword")
+    .orElse(providers.environmentVariable("MAVEN_CENTRAL_TOKEN_PASSWORD"))
 
 val verifyCoreJar = tasks.register("verifyCoreJar") {
     doLast {
@@ -99,6 +103,18 @@ publishing {
                 connection.set("scm:git:https://github.com/fabian-barney/crap-java.git")
                 developerConnection.set("scm:git:ssh://git@github.com/fabian-barney/crap-java.git")
                 url.set("https://github.com/fabian-barney/crap-java")
+            }
+        }
+    }
+    if (mavenCentralTokenUsername.isPresent && mavenCentralTokenPassword.isPresent) {
+        repositories {
+            maven {
+                name = "centralPortalOssrhStaging"
+                url = uri("https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/")
+                credentials {
+                    username = mavenCentralTokenUsername.get()
+                    password = mavenCentralTokenPassword.get()
+                }
             }
         }
     }

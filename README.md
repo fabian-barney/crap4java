@@ -64,7 +64,7 @@ mvn -B -pl cli -am -DskipTests package
 From the project root you want to analyze:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.3.1.jar
+java -jar cli/target/crap-java-cli-0.3.2.jar
 ```
 
 ## CLI
@@ -81,18 +81,18 @@ java -jar cli/target/crap-java-cli-0.3.1.jar
 Examples:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.3.1.jar --help
-java -jar cli/target/crap-java-cli-0.3.1.jar
-java -jar cli/target/crap-java-cli-0.3.1.jar --changed
-java -jar cli/target/crap-java-cli-0.3.1.jar --build-tool gradle
-java -jar cli/target/crap-java-cli-0.3.1.jar --build-tool maven module-a/src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.3.1.jar src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.3.1.jar module-a module-b
+java -jar cli/target/crap-java-cli-0.3.2.jar --help
+java -jar cli/target/crap-java-cli-0.3.2.jar
+java -jar cli/target/crap-java-cli-0.3.2.jar --changed
+java -jar cli/target/crap-java-cli-0.3.2.jar --build-tool gradle
+java -jar cli/target/crap-java-cli-0.3.2.jar --build-tool maven module-a/src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.3.2.jar src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.3.2.jar module-a module-b
 ```
 
 ## Distribution
 
-Public releases are intended to ship through Maven Central and the Gradle Plugin Portal:
+Public releases ship through Maven Central, with the Gradle Plugin Portal as the primary Gradle plugin channel once approved:
 
 - `media.barney:crap-java-core:<version>`
 - `media.barney:crap-java-cli:<version>`
@@ -116,6 +116,29 @@ Run:
 ```bash
 ./gradlew crap-java-check
 ```
+
+### Maven Central Gradle Plugin
+
+If you want to resolve the Gradle plugin from Maven Central instead of waiting for Plugin Portal availability, add Maven Central to plugin resolution in `settings.gradle(.kts)`:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+```
+
+Then apply the same plugin id in `build.gradle(.kts)`:
+
+```kotlin
+plugins {
+    id("media.barney.crap-java") version "<version>"
+}
+```
+
+The marker publication lives at `media.barney.crap-java:media.barney.crap-java.gradle.plugin:<version>` and resolves to the implementation artifact `media.barney:crap-java-gradle-plugin:<version>`.
 
 ### Maven Central
 
