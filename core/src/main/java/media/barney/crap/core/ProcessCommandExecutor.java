@@ -7,6 +7,8 @@ import java.util.concurrent.TimeUnit;
 
 final class ProcessCommandExecutor implements CommandExecutor {
 
+    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
+
     private final Duration timeout;
 
     ProcessCommandExecutor() {
@@ -25,6 +27,11 @@ final class ProcessCommandExecutor implements CommandExecutor {
                 .start();
         if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroyForcibly();
+            if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException(
+                        "Command timed out after " + timeout + " and could not be terminated within "
+                                + TERMINATION_TIMEOUT + ": " + String.join(" ", command));
+            }
             throw new IllegalStateException("Command timed out after " + timeout + ": " + String.join(" ", command));
         }
         return process.exitValue();

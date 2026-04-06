@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 - 2026-04-06
+
+### Changed
+
+- Renamed the public Java package namespace from `media.barney.crapjava.*` to `media.barney.crap.*`.
+- Continued publishing all Java artifacts and the Gradle plugin marker through Maven Central.
+
+### Fixed
+
+- Wait for forcibly terminated subprocesses to exit after a timeout so Windows test and release runs do not leave the working directory locked.
+
+### Publishing
+
+- Re-submitted the Gradle plugin publication after adding Gradle's requested DNS verification for `barney.media`.
+- Kept Maven Central as the secondary Gradle plugin channel while Plugin Portal approval remains pending.
+
 ## 0.3.2 - 2026-04-05
 
 ### Added
