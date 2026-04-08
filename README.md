@@ -92,7 +92,7 @@ java -jar cli/target/crap-java-cli-0.4.1.jar module-a module-b
 
 ## Distribution
 
-Public releases ship through Maven Central, with the Gradle Plugin Portal as the primary Gradle plugin channel once approved:
+Public releases ship through Maven Central, with the Gradle Plugin Portal as the primary Gradle plugin channel:
 
 - `media.barney:crap-java-core:<version>`
 - `media.barney:crap-java-cli:<version>`
@@ -119,7 +119,7 @@ Run:
 
 ### Maven Central Gradle Plugin
 
-If you want to resolve the Gradle plugin from Maven Central instead of waiting for Plugin Portal availability, add Maven Central to plugin resolution in `settings.gradle(.kts)`:
+If you want to prefer resolving the Gradle plugin from Maven Central, add Maven Central ahead of the Plugin Portal in `settings.gradle(.kts)`:
 
 ```kotlin
 pluginManagement {
