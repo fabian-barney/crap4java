@@ -56,9 +56,9 @@ mvn -B -pl maven-plugin -am verify
 ## Shared Cognitive Gate
 
 Repository CI also runs the shared published `cognitive-java` Maven plugin as a
-separate `cognitive-java Gate` job. The plugin resolves from Maven Central:
-
-- `media.barney:cognitive-java-maven-plugin:0.3.0`
+separate `cognitive-java Gate` job. The plugin resolves from Maven Central, and
+the current version is controlled by the `cognitive-java.version` property in
+`pom.xml`.
 
 From the repository root, run the same gate locally with:
 

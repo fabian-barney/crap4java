@@ -92,6 +92,8 @@
         <inherited>false</inherited>
         <executions>
           <execution>
+            <id>cognitive-java-check</id>
+            <phase>verify</phase>
             <goals>
               <goal>check</goal>
             </goals>
