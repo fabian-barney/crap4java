@@ -68,6 +68,22 @@ mvn -B cognitive-java:check
 
 `mvn -B verify` now also includes the cognitive gate at the reactor root.
 
+## Self-Hosting Gate Scope
+
+Consumer Maven repos standardize on `mvn -B -ntp verify`, but this repository
+keeps dedicated self-hosting gate jobs where needed to preserve full-repo metric
+ownership across the embedded `gradle-plugin/` source tree.
+
+In CI:
+
+- `crap-java Gate` owns `core`, `cli`, `maven-plugin`, and `gradle-plugin/src/main/java`
+- `cognitive-java Gate` owns the same full-repo source scope
+- `Gradle Plugin` validates Gradle plugin build and test behavior only
+
+The standalone `Gradle Plugin` job is not the owner of metric failures for
+`gradle-plugin/src/main/java`; those failures still belong to the metric gate
+jobs.
+
 ## Run
 
 Build the CLI jar:
