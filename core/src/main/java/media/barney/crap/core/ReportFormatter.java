@@ -41,37 +41,12 @@ final class ReportFormatter {
 
     private static String formatText(CrapReport report) {
         List<CrapReport.MethodReport> sorted = sortedMethods(report.methods());
-        String header = String.format(
-                "%-8s %-30s %-35s %4s %7s %-11s %8s",
-                "Status",
-                "Method",
-                "Class",
-                "CC",
-                "Cov%",
-                "CovKind",
-                "CRAP"
-        );
-        String separator = "-".repeat(header.length());
         StringBuilder builder = new StringBuilder();
         builder.append("CRAP Report\n");
         builder.append("===========\n");
         builder.append("Status: ").append(report.status()).append('\n');
         builder.append("Threshold: ").append(formatDisplayNumber(report.threshold())).append('\n');
-        builder.append(header).append('\n');
-        builder.append(separator).append('\n');
-
-        for (CrapReport.MethodReport entry : sorted) {
-            builder.append(String.format(Locale.ROOT, "%-8s %-30s %-35s %4d %7s %-11s %8s",
-                    entry.status().value(),
-                    entry.methodName(),
-                    entry.className(),
-                    entry.complexity(),
-                    formatCoverage(entry.coveragePercent()),
-                    entry.coverageKind(),
-                    formatDisplayNumber(entry.crapScore())));
-            builder.append('\n');
-        }
-
+        appendMethodTable(builder, fullTextColumns(), sorted);
         return builder.toString();
     }
 
@@ -83,28 +58,93 @@ final class ReportFormatter {
         if (failedMethods.isEmpty()) {
             return builder.toString();
         }
-        String header = String.format(
-                "%-30s %-35s %4s %7s %-11s %8s",
-                "Method",
-                "Class",
-                "CC",
-                "Cov%",
-                "CovKind",
-                "CRAP"
-        );
-        builder.append(header).append('\n');
-        builder.append("-".repeat(header.length())).append('\n');
-        for (CrapReport.MethodReport entry : failedMethods) {
-            builder.append(String.format(Locale.ROOT, "%-30s %-35s %4d %7s %-11s %8s",
-                    entry.methodName(),
-                    entry.className(),
-                    entry.complexity(),
-                    formatCoverage(entry.coveragePercent()),
-                    entry.coverageKind(),
-                    formatDisplayNumber(entry.crapScore())));
-            builder.append('\n');
-        }
+        appendMethodTable(builder, agentTextColumns(), failedMethods);
         return builder.toString();
+    }
+
+    private static List<TableColumn> fullTextColumns() {
+        List<TableColumn> columns = new ArrayList<>();
+        columns.add(new TableColumn("Status", Alignment.LEFT, method -> method.status().value()));
+        columns.addAll(methodTextColumns());
+        return columns;
+    }
+
+    private static List<TableColumn> agentTextColumns() {
+        return methodTextColumns();
+    }
+
+    private static List<TableColumn> methodTextColumns() {
+        return List.of(
+                new TableColumn("Method", Alignment.LEFT, CrapReport.MethodReport::methodName),
+                new TableColumn("Class", Alignment.LEFT, CrapReport.MethodReport::className),
+                new TableColumn("CC", Alignment.RIGHT, method -> Integer.toString(method.complexity())),
+                new TableColumn("Cov%", Alignment.RIGHT, method -> formatCoverage(method.coveragePercent())),
+                new TableColumn("CovKind", Alignment.LEFT, CrapReport.MethodReport::coverageKind),
+                new TableColumn("CRAP", Alignment.RIGHT, method -> formatDisplayNumber(method.crapScore()))
+        );
+    }
+
+    private static void appendMethodTable(StringBuilder builder,
+                                          List<TableColumn> columns,
+                                          List<CrapReport.MethodReport> methods) {
+        List<List<String>> rows = methods.stream()
+                .map(method -> row(columns, method))
+                .toList();
+        List<Integer> widths = columnWidths(columns, rows);
+        appendTableRow(builder, columns, columnHeaders(columns), widths);
+        appendSeparator(builder, widths);
+        for (List<String> row : rows) {
+            appendTableRow(builder, columns, row, widths);
+        }
+    }
+
+    private static List<String> row(List<TableColumn> columns, CrapReport.MethodReport method) {
+        List<String> values = new ArrayList<>();
+        for (TableColumn column : columns) {
+            values.add(column.value(method));
+        }
+        return values;
+    }
+
+    private static List<String> columnHeaders(List<TableColumn> columns) {
+        return columns.stream()
+                .map(TableColumn::header)
+                .toList();
+    }
+
+    private static List<Integer> columnWidths(List<TableColumn> columns, List<List<String>> rows) {
+        List<Integer> widths = columns.stream()
+                .map(column -> column.header().length())
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+        for (List<String> row : rows) {
+            for (int index = 0; index < row.size(); index++) {
+                widths.set(index, Math.max(widths.get(index), row.get(index).length()));
+            }
+        }
+        return widths;
+    }
+
+    private static void appendSeparator(StringBuilder builder, List<Integer> widths) {
+        for (int index = 0; index < widths.size(); index++) {
+            if (index > 0) {
+                builder.append("  ");
+            }
+            builder.append("-".repeat(widths.get(index)));
+        }
+        builder.append('\n');
+    }
+
+    private static void appendTableRow(StringBuilder builder,
+                                       List<TableColumn> columns,
+                                       List<String> row,
+                                       List<Integer> widths) {
+        for (int index = 0; index < row.size(); index++) {
+            if (index > 0) {
+                builder.append("  ");
+            }
+            builder.append(columns.get(index).align(row.get(index), widths.get(index)));
+        }
+        builder.append('\n');
     }
 
     private static String formatJson(CrapReport report) {
@@ -317,5 +357,36 @@ final class ReportFormatter {
             }
         }
         return builder.toString();
+    }
+
+    private record TableColumn(String header, Alignment alignment, CellValue cellValue) {
+        private String align(String value, int width) {
+            return alignment.align(value, width);
+        }
+
+        private String value(CrapReport.MethodReport method) {
+            return cellValue.value(method);
+        }
+    }
+
+    private interface CellValue {
+        String value(CrapReport.MethodReport method);
+    }
+
+    private enum Alignment {
+        LEFT {
+            @Override
+            String align(String value, int width) {
+                return value + " ".repeat(width - value.length());
+            }
+        },
+        RIGHT {
+            @Override
+            String align(String value, int width) {
+                return " ".repeat(width - value.length()) + value;
+            }
+        };
+
+        abstract String align(String value, int width);
     }
 }

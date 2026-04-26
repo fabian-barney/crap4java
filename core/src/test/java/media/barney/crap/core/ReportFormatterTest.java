@@ -29,6 +29,31 @@ class ReportFormatterTest {
     }
 
     @Test
+    void formatsTextReportWithDynamicColumnWidths() {
+        String report = ReportFormatter.format(report(
+                metric("veryLongMethodNameForWideColumn", "demo.really.LongClassNameForWideColumn", 4, 12, 5.0, 45.25),
+                metric("ok", "demo.S", 9, 2, 100.0, 2.0)
+        ), ReportFormat.TEXT);
+
+        List<String> lines = report.lines().toList();
+        int headerIndex = tableHeaderIndex(lines, "Status");
+        String header = lines.get(headerIndex);
+        String separator = lines.get(headerIndex + 1);
+        String failed = lines.get(headerIndex + 2);
+        String passed = lines.get(headerIndex + 3);
+
+        assertTrue(failed.contains("veryLongMethodNameForWideColumn"));
+        assertTrue(failed.contains("demo.really.LongClassNameForWideColumn"));
+        assertEquals(header.length(), separator.length());
+        assertEquals(header.length(), failed.length());
+        assertEquals(header.length(), passed.length());
+
+        int complexityColumn = header.indexOf("CC");
+        assertEquals("12", failed.substring(complexityColumn, complexityColumn + 2));
+        assertEquals(" 2", passed.substring(complexityColumn, complexityColumn + 2));
+    }
+
+    @Test
     void formatsJsonReportWithSchemaSummaryAndMethods() {
         String report = ReportFormatter.format(report(
                 metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
@@ -145,6 +170,11 @@ class ReportFormatterTest {
         assertFalse(report.contains("safe"));
         assertFalse(report.contains("unknown"));
         assertFalse(report.contains("CRAP Report"));
+
+        List<String> lines = report.lines().toList();
+        int headerIndex = tableHeaderIndex(lines, "Method");
+        assertEquals(lines.get(headerIndex).length(), lines.get(headerIndex + 1).length());
+        assertEquals(lines.get(headerIndex).length(), lines.get(headerIndex + 2).length());
     }
 
     @Test
@@ -217,6 +247,16 @@ class ReportFormatterTest {
 
     private static CrapReport report(MethodMetrics... metrics) {
         return CrapReport.from(List.of(metrics), Main.DEFAULT_THRESHOLD);
+    }
+
+    private static int tableHeaderIndex(List<String> lines, String firstColumn) {
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (line.startsWith(firstColumn) && line.contains("Class") && line.contains("CovKind")) {
+                return index;
+            }
+        }
+        throw new AssertionError("Missing text table header");
     }
 
     private static MethodMetrics metric(String method,
