@@ -29,6 +29,30 @@ class ReportFormatterTest {
     }
 
     @Test
+    void formatsTextReportWithDynamicColumnWidths() {
+        String report = ReportFormatter.format(report(
+                metric("veryLongMethodNameForWideColumn", "demo.really.LongClassNameForWideColumn", 4, 12, 5.0, 45.25),
+                metric("ok", "demo.S", 9, 2, 100.0, 2.0)
+        ), ReportFormat.TEXT);
+
+        List<String> lines = report.lines().toList();
+        String header = lines.get(4);
+        String separator = lines.get(5);
+        String failed = lines.get(6);
+        String passed = lines.get(7);
+
+        assertTrue(failed.contains("veryLongMethodNameForWideColumn"));
+        assertTrue(failed.contains("demo.really.LongClassNameForWideColumn"));
+        assertEquals(header.length(), separator.length());
+        assertEquals(header.length(), failed.length());
+        assertEquals(header.length(), passed.length());
+
+        int complexityColumn = header.indexOf("CC");
+        assertEquals("12", failed.substring(complexityColumn, complexityColumn + 2));
+        assertEquals(" 2", passed.substring(complexityColumn, complexityColumn + 2));
+    }
+
+    @Test
     void formatsJsonReportWithSchemaSummaryAndMethods() {
         String report = ReportFormatter.format(report(
                 metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
@@ -145,6 +169,10 @@ class ReportFormatterTest {
         assertFalse(report.contains("safe"));
         assertFalse(report.contains("unknown"));
         assertFalse(report.contains("CRAP Report"));
+
+        List<String> lines = report.lines().toList();
+        assertEquals(lines.get(2).length(), lines.get(3).length());
+        assertEquals(lines.get(2).length(), lines.get(4).length());
     }
 
     @Test
