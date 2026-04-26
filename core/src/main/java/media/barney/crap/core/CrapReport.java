@@ -5,13 +5,15 @@ import org.jspecify.annotations.Nullable;
 
 record CrapReport(
         String status,
+        double threshold,
         List<MethodReport> methods
 ) {
     static CrapReport from(List<MethodMetrics> metrics, double threshold) {
+        double validatedThreshold = Thresholds.validate(threshold);
         List<MethodReport> methods = metrics.stream()
-                .map(metric -> MethodReport.from(metric, threshold))
+                .map(metric -> MethodReport.from(metric, validatedThreshold))
                 .toList();
-        return new CrapReport(status(methods), methods);
+        return new CrapReport(status(methods), validatedThreshold, methods);
     }
 
     private static String status(List<MethodReport> methods) {
@@ -30,7 +32,6 @@ record CrapReport(
             int complexity,
             @Nullable Double coveragePercent,
             String coverageKind,
-            double threshold,
             @Nullable Double crapScore
     ) {
         private static MethodReport from(MethodMetrics metric, double threshold) {
@@ -44,7 +45,6 @@ record CrapReport(
                     metric.complexity(),
                     metric.coveragePercent(),
                     metric.coverageKind(),
-                    threshold,
                     metric.crapScore()
             );
         }

@@ -32,6 +32,7 @@ class MainTest {
         assertTrue(utf8(out).contains("Usage:"));
         assertTrue(utf8(out).contains("--build-tool"));
         assertTrue(utf8(out).contains("--format"));
+        assertTrue(utf8(out).contains("--threshold"));
     }
 
     @Test

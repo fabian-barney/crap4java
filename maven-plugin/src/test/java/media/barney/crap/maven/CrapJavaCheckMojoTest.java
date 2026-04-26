@@ -64,6 +64,8 @@ class CrapJavaCheckMojoTest {
         assertEquals(List.of(
                 "--format",
                 "text",
+                "--threshold",
+                "8.0",
                 "--junit-report",
                 root.resolve("target/crap-java/TEST-crap-java.xml").toString()
         ), List.of(runner.args));
@@ -83,7 +85,30 @@ class CrapJavaCheckMojoTest {
 
         mojo.execute();
 
-        assertEquals(List.of("--format", "text", "--junit-report", report.toString()), List.of(runner.args));
+        assertEquals(List.of("--format", "text", "--threshold", "8.0", "--junit-report", report.toString()), List.of(runner.args));
+    }
+
+    @Test
+    void usesConfiguredThreshold() throws Exception {
+        Path root = tempDir.resolve("root");
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        setField(mojo, "session", session(List.of(project(root, "root")), root));
+        setField(mojo, "project", project(root, "root"));
+        setField(mojo, "threshold", 6.0);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "text",
+                "--threshold",
+                "6.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
     }
 
     @Test

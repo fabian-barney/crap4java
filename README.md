@@ -110,6 +110,7 @@ java -jar cli/target/crap-java-cli-0.4.1.jar
 --format <format>     Write `toon`, `json`, `text`, or `junit` output (`toon` by default)
 --output <path>       Write the selected output format to a file instead of stdout
 --junit-report <path> Also write a JUnit XML report for CI test-report UIs
+--threshold <number>  Override the CRAP threshold (`8.0` by default)
 <file ...>            Analyze only these files
 <directory ...>       Analyze all Java files under each directory's nested src/main/java trees
 ```
@@ -125,6 +126,7 @@ java -jar cli/target/crap-java-cli-0.4.1.jar --format json
 java -jar cli/target/crap-java-cli-0.4.1.jar --format text
 java -jar cli/target/crap-java-cli-0.4.1.jar --format junit --output target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.4.1.jar --junit-report target/crap-java/TEST-crap-java.xml
+java -jar cli/target/crap-java-cli-0.4.1.jar --threshold 6
 java -jar cli/target/crap-java-cli-0.4.1.jar --build-tool maven module-a/src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.4.1.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.4.1.jar module-a module-b
@@ -132,14 +134,22 @@ java -jar cli/target/crap-java-cli-0.4.1.jar module-a module-b
 
 The CLI writes only the requested report format to stdout, making the default
 TOON output suitable for agent workflows. Warnings and threshold errors are
-written to stderr. Machine-readable reports include a top-level `status`
-(`passed` or `failed`) and method-level `coverageKind` values identifying the
-coverage input used for each CRAP score (`instruction`, `branch`, or `N/A`).
+written to stderr. Machine-readable reports include top-level `status`
+(`passed` or `failed`) and `threshold` values, plus method-level
+`coverageKind` values identifying the coverage input used for each CRAP score
+(`instruction`, `branch`, or `N/A`).
+
+The default threshold is `8.0`. Values below `4.0` print a warning because they
+are likely too noisy; values above `8.0` print a warning because they are too
+lenient even for hard gates. The warning recommends `8.0` for hard gates,
+targeting `6.0` during implementation, and using the `8.0` default when in
+doubt.
 
 The JUnit XML format exposes each analyzed method as a testcase. Methods with
-CRAP scores over `8.0` fail, methods with unavailable coverage are skipped, and
-the testcase properties include the score, threshold, complexity, coverage
-percent, coverage kind, source path, and line range.
+CRAP scores over the configured threshold fail, methods with unavailable
+coverage are skipped, and the testsuite properties include the global
+threshold. Testcase properties include the score, complexity, coverage percent,
+coverage kind, source path, and line range.
 
 ## Distribution
 
@@ -170,6 +180,14 @@ Run:
 
 The Gradle task writes a JUnit XML report by default to
 `build/reports/crap-java/TEST-crap-java.xml`.
+
+Override the threshold in `build.gradle(.kts)`:
+
+```kotlin
+crapJava {
+    threshold.set(6.0)
+}
+```
 
 ### Maven Central Gradle Plugin
 
@@ -253,6 +271,12 @@ The Maven plugin writes a JUnit XML report by default to
 mvn verify -DcrapJava.junitReportPath=target/custom-crap-java.xml
 ```
 
+Override the threshold with:
+
+```bash
+mvn verify -DcrapJava.threshold=6.0
+```
+
 In GitLab CI, upload the generated XML with `artifacts:reports:junit`. In
 GitHub Actions, upload the file as an artifact or feed it into a JUnit
 test-report action.
@@ -261,7 +285,7 @@ test-report action.
 
 - `0` success, threshold respected
 - `1` invalid CLI usage
-- `2` CRAP threshold exceeded (`> 8.0`)
+- `2` CRAP threshold exceeded (`> configured threshold`)
 
 ## Contributing
 

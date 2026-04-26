@@ -7,6 +7,7 @@ record CliArguments(
         CliMode mode,
         BuildToolSelection buildToolSelection,
         ReportFormat reportFormat,
+        double threshold,
         @Nullable String outputPath,
         @Nullable String junitReportPath,
         List<String> fileArgs

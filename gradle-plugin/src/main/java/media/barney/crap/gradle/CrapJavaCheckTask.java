@@ -7,6 +7,7 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.MapProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
@@ -40,6 +41,9 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     @Input
     public abstract MapProperty<String, String> getModuleCoverageReports();
 
+    @Input
+    public abstract Property<Double> getThreshold();
+
     @OutputFile
     public abstract RegularFileProperty getJunitReport();
 
@@ -54,14 +58,14 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (sourceFiles.isEmpty()) {
             try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
                  var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-                Main.runWithExistingCoverage(List.of(), analysisRoot, out, err, junitReport);
+                Main.runWithExistingCoverage(List.of(), analysisRoot, out, err, junitReport, getThreshold().get());
             }
             return;
         }
         List<Main.ResolvedCoverageModule> modules = resolvedModules(sourceFiles);
         try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
              var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-            int exit = Main.runWithExistingCoverage(modules, analysisRoot, out, err, junitReport);
+            int exit = Main.runWithExistingCoverage(modules, analysisRoot, out, err, junitReport, getThreshold().get());
             if (exit != 0) {
                 throw new GradleException("crap-java-check failed with exit " + exit);
             }

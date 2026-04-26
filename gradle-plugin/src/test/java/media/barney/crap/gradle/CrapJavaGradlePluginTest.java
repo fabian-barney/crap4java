@@ -30,9 +30,12 @@ class CrapJavaGradlePluginTest {
         project.getPluginManager().apply(CrapJavaGradlePlugin.class);
 
         CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+        CrapJavaExtension extension = project.getExtensions().getByType(CrapJavaExtension.class);
 
         assertEquals("verification", checkTask.getGroup());
         assertEquals("Runs the crap-java CRAP metric gate.", checkTask.getDescription());
+        assertEquals(8.0, extension.getThreshold().get());
+        assertEquals(8.0, checkTask.getThreshold().get());
         Set<String> dependencyNames = checkTask.getTaskDependencies().getDependencies(checkTask).stream()
                 .map(Task::getName)
                 .collect(Collectors.toSet());
@@ -42,6 +45,19 @@ class CrapJavaGradlePluginTest {
                 .replace('\\', '/')
                 .endsWith("build/reports/crap-java/TEST-crap-java.xml"));
         assertNotNull(project.getTasks().findByName("jacocoTestReport"));
+    }
+
+    @Test
+    void configuredExtensionThresholdFlowsToCheckTask() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        project.getPluginManager().apply("java");
+        project.getPluginManager().apply(CrapJavaGradlePlugin.class);
+        project.getExtensions().getByType(CrapJavaExtension.class).getThreshold().set(6.0);
+
+        CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+
+        assertEquals(6.0, checkTask.getThreshold().get());
     }
 
     @Test
@@ -79,6 +95,7 @@ class CrapJavaGradlePluginTest {
         task.getAnalysisSources().from(source);
         task.getCoverageReports().from(jacocoXml);
         task.getModuleCoverageReports().put(".", "build/reports/jacoco/test/jacocoTestReport.xml");
+        task.getThreshold().set(8.0);
         Path junitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         task.getJunitReport().fileValue(junitReport.toFile());
 

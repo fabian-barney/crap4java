@@ -11,7 +11,15 @@ final class CliArgumentsParser {
 
     static CliArguments parse(String[] args) {
         if (args.length == 0) {
-            return new CliArguments(CliMode.ALL_SRC, BuildToolSelection.AUTO, ReportFormat.TOON, null, null, List.of());
+            return new CliArguments(
+                    CliMode.ALL_SRC,
+                    BuildToolSelection.AUTO,
+                    ReportFormat.TOON,
+                    Thresholds.DEFAULT,
+                    null,
+                    null,
+                    List.of()
+            );
         }
 
         ParseState state = parseState(args);
@@ -20,6 +28,7 @@ final class CliArgumentsParser {
                     CliMode.HELP,
                     state.buildToolSelection,
                     state.reportFormat,
+                    state.threshold,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -33,6 +42,7 @@ final class CliArgumentsParser {
                     CliMode.CHANGED_SRC,
                     state.buildToolSelection,
                     state.reportFormat,
+                    state.threshold,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -43,6 +53,7 @@ final class CliArgumentsParser {
                     CliMode.ALL_SRC,
                     state.buildToolSelection,
                     state.reportFormat,
+                    state.threshold,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -52,6 +63,7 @@ final class CliArgumentsParser {
                 CliMode.EXPLICIT_FILES,
                 state.buildToolSelection,
                 state.reportFormat,
+                state.threshold,
                 state.outputPath,
                 state.junitReportPath,
                 List.copyOf(values)
@@ -68,6 +80,14 @@ final class CliArgumentsParser {
 
     private static int parseArg(String[] args, int index, ParseStateBuilder state) {
         String arg = args[index];
+        if (!arg.startsWith("--")) {
+            state.values.add(arg);
+            return index;
+        }
+        return parseOption(args, index, state, arg);
+    }
+
+    private static int parseOption(String[] args, int index, ParseStateBuilder state, String arg) {
         if ("--help".equals(arg)) {
             state.help = true;
             return index;
@@ -96,11 +116,12 @@ final class CliArgumentsParser {
             state.junitReportPathSeen = true;
             return index + 1;
         }
-        if (arg.startsWith("--")) {
-            throw new IllegalArgumentException("Unknown option: " + arg);
+        if ("--threshold".equals(arg)) {
+            state.threshold = parseThreshold(args, index, state.thresholdSeen);
+            state.thresholdSeen = true;
+            return index + 1;
         }
-        state.values.add(arg);
-        return index;
+        throw new IllegalArgumentException("Unknown option: " + arg);
     }
 
     private static BuildToolSelection parseBuildTool(String[] args, int index, boolean buildToolSeen) {
@@ -133,6 +154,20 @@ final class CliArgumentsParser {
         return args[index + 1];
     }
 
+    private static double parseThreshold(String[] args, int index, boolean thresholdSeen) {
+        if (thresholdSeen) {
+            throw new IllegalArgumentException("--threshold can only be provided once");
+        }
+        if (index + 1 >= args.length) {
+            throw new IllegalArgumentException("--threshold requires a finite number greater than 0");
+        }
+        try {
+            return Thresholds.parse(args[index + 1]);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("--threshold requires a finite number greater than 0", ex);
+        }
+    }
+
     private static void ensureChangedIsNotCombined(boolean changed, List<String> values) {
         if (changed && !values.isEmpty()) {
             throw new IllegalArgumentException("--changed cannot be combined with file arguments");
@@ -143,6 +178,7 @@ final class CliArgumentsParser {
                               boolean changed,
                               BuildToolSelection buildToolSelection,
                               ReportFormat reportFormat,
+                              double threshold,
                               @Nullable String outputPath,
                               @Nullable String junitReportPath,
                               List<String> fileArgs) {
@@ -155,6 +191,8 @@ final class CliArgumentsParser {
         private boolean buildToolSeen;
         private ReportFormat reportFormat = ReportFormat.TOON;
         private boolean reportFormatSeen;
+        private double threshold = Thresholds.DEFAULT;
+        private boolean thresholdSeen;
         private @Nullable String outputPath;
         private boolean outputPathSeen;
         private @Nullable String junitReportPath;
@@ -162,7 +200,7 @@ final class CliArgumentsParser {
         private final List<String> values = new ArrayList<>();
 
         private ParseState build() {
-            return new ParseState(help, changed, buildToolSelection, reportFormat, outputPath, junitReportPath, values);
+            return new ParseState(help, changed, buildToolSelection, reportFormat, threshold, outputPath, junitReportPath, values);
         }
     }
 }

@@ -9,6 +9,8 @@ import java.util.Locale;
 
 public final class Main {
 
+    public static final double DEFAULT_THRESHOLD = Thresholds.DEFAULT;
+
     private Main() {
     }
 
@@ -26,7 +28,14 @@ public final class Main {
     public static int runWithExistingCoverage(List<ResolvedCoverageModule> modules,
                                               PrintStream out,
                                               PrintStream err) throws Exception {
-        return runResolvedModules(modules, commonRoot(modules), out, err, ReportOptions.textWithOptionalJunit(null));
+        return runResolvedModules(
+                modules,
+                commonRoot(modules),
+                out,
+                err,
+                ReportOptions.textWithOptionalJunit(null),
+                DEFAULT_THRESHOLD
+        );
     }
 
     public static int runWithExistingCoverage(List<ResolvedCoverageModule> modules,
@@ -34,12 +43,22 @@ public final class Main {
                                               PrintStream out,
                                               PrintStream err,
                                               Path junitReportPath) throws Exception {
+        return runWithExistingCoverage(modules, reportRoot, out, err, junitReportPath, DEFAULT_THRESHOLD);
+    }
+
+    public static int runWithExistingCoverage(List<ResolvedCoverageModule> modules,
+                                              Path reportRoot,
+                                              PrintStream out,
+                                              PrintStream err,
+                                              Path junitReportPath,
+                                              double threshold) throws Exception {
         return runResolvedModules(
                 modules,
                 reportRoot.toAbsolutePath().normalize(),
                 out,
                 err,
-                ReportOptions.textWithOptionalJunit(junitReportPath.toAbsolutePath().normalize())
+                ReportOptions.textWithOptionalJunit(junitReportPath.toAbsolutePath().normalize()),
+                threshold
         );
     }
 
@@ -68,7 +87,10 @@ public final class Main {
                                           Path reportRoot,
                                           PrintStream out,
                                           PrintStream err,
-                                          ReportOptions reportOptions) throws Exception {
+                                          ReportOptions reportOptions,
+                                          double threshold) throws Exception {
+        Thresholds.validate(threshold);
+        writeThresholdWarning(err, threshold);
         List<MethodMetrics> metrics = new ArrayList<>();
         for (ResolvedCoverageModule module : modules) {
             if (module.sourceFiles().isEmpty()) {
@@ -80,12 +102,12 @@ public final class Main {
             metrics.addAll(CrapAnalyzer.analyze(reportRoot, module.sourceFiles(), module.coverageReport()));
         }
 
-        CrapReport report = CrapReport.from(metrics, ReportPublisher.THRESHOLD);
+        CrapReport report = CrapReport.from(metrics, threshold);
         ReportPublisher.publish(report, reportOptions, out);
 
         double max = Main.maxCrap(metrics);
-        if (CliApplication.thresholdExceeded(max)) {
-            err.printf(Locale.ROOT, "CRAP threshold exceeded: %.1f > %.1f%n", max, ReportPublisher.THRESHOLD);
+        if (CliApplication.thresholdExceeded(max, threshold)) {
+            err.printf(Locale.ROOT, "CRAP threshold exceeded: %.1f > %.1f%n", max, threshold);
             return 2;
         }
         return 0;
@@ -101,9 +123,17 @@ public final class Main {
                   crap-java --format json                 Write report as toon, json, text, or junit (default: toon)
                   crap-java --output report.toon          Write the selected report format to a file
                   crap-java --junit-report report.xml     Also write a JUnit XML report for CI
+                  crap-java --threshold 6                 Override the CRAP threshold (default: 8.0)
                   crap-java <path...>                     Analyze files, or for directory args analyze nested src/main/java trees under each path
                   crap-java --help                        Print this help message
                 """;
+    }
+
+    static void writeThresholdWarning(PrintStream err, double threshold) {
+        String warning = Thresholds.warning(threshold);
+        if (!warning.isEmpty()) {
+            err.println(warning);
+        }
     }
 
     private static Path commonRoot(List<ResolvedCoverageModule> modules) {

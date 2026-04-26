@@ -166,6 +166,22 @@ class CrapJavaGradlePluginFunctionalTest {
         assertTrue(outcome == TaskOutcome.SUCCESS || outcome == TaskOutcome.UP_TO_DATE);
     }
 
+    @Test
+    void configuredThresholdIsWrittenToJunitReport() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    threshold.set(6.0)
+                }
+                """);
+
+        BuildResult result = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
+        assertTrue(Files.readString(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml"))
+                .contains("<property name=\"threshold\" value=\"6.0\"/>"));
+    }
+
     private BuildResult runBuild(String... arguments) {
         List<String> gradleArguments = new ArrayList<>();
         gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));
@@ -179,6 +195,10 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     private void writeSingleModuleProject() throws IOException {
+        writeSingleModuleProject("");
+    }
+
+    private void writeSingleModuleProject(String extraBuildScript) throws IOException {
         writeFile("settings.gradle.kts", "rootProject.name = \"demo\"");
         writeFile("build.gradle.kts", """
                 plugins {
@@ -198,7 +218,7 @@ class CrapJavaGradlePluginFunctionalTest {
                 tasks.test {
                     useJUnitPlatform()
                 }
-                """);
+                """ + extraBuildScript);
         writeFile("src/main/java/demo/Sample.java", """
                 package demo;
 

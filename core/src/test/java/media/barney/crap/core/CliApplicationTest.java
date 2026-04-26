@@ -224,9 +224,87 @@ class CliApplicationTest {
     }
 
     @Test
-    void thresholdExceededUsesStrictlyGreaterThanEight() {
-        assertFalse(CliApplication.thresholdExceeded(8.0));
-        assertTrue(CliApplication.thresholdExceeded(8.1));
+    void thresholdExceededUsesStrictlyGreaterThanConfiguredValue() {
+        assertFalse(CliApplication.thresholdExceeded(6.0, 6.0));
+        assertTrue(CliApplication.thresholdExceeded(6.1, 6.0));
+    }
+
+    @Test
+    void customThresholdControlsExitCode() throws Exception {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(tempDir.resolve("pom.xml"), "<project/>");
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                class Sample {
+                    int alpha(boolean left, boolean right) {
+                        if (left) {
+                            return 1;
+                        }
+                        if (right) {
+                            return 2;
+                        }
+                        return 0;
+                    }
+                }
+                """);
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        CoverageRunner coverageRunner = new CoverageRunner((command, directory) -> {
+            Files.createDirectories(jacocoXml.getParent());
+            Files.writeString(jacocoXml, """
+                    <report name="demo">
+                      <package name="demo">
+                        <class name="demo/Sample" sourcefilename="Sample.java">
+                          <method name="alpha" desc="(ZZ)I" line="4">
+                            <counter type="INSTRUCTION" missed="1" covered="1"/>
+                          </method>
+                        </class>
+                      </package>
+                    </report>
+                    """);
+            return 0;
+        });
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, CoverageMode.GENERATE)
+                .execute(new String[]{"--format", "text", "--threshold", "4.0", "src/main/java/demo/Sample.java"});
+
+        assertEquals(2, exit);
+        assertTrue(utf8(out).contains("Threshold: 4.0"));
+        assertTrue(utf8(err).contains("CRAP threshold exceeded: 4.1 > 4.0"));
+    }
+
+    @Test
+    void warnsForThresholdsLikelyTooNoisyOrTooLenient() throws Exception {
+        ByteArrayOutputStream noisyErr = new ByteArrayOutputStream();
+        ByteArrayOutputStream lenientErr = new ByteArrayOutputStream();
+
+        new CliApplication(tempDir, new PrintStream(new ByteArrayOutputStream()), new PrintStream(noisyErr), NOOP_COVERAGE, CoverageMode.GENERATE)
+                .execute(new String[]{"--threshold", "3.9"});
+        new CliApplication(tempDir, new PrintStream(new ByteArrayOutputStream()), new PrintStream(lenientErr), NOOP_COVERAGE, CoverageMode.GENERATE)
+                .execute(new String[]{"--threshold", "8.1"});
+
+        assertTrue(utf8(noisyErr).contains("threshold below 4.0 is likely too noisy"));
+        assertTrue(utf8(noisyErr).contains("Use 8.0 for hard gates, target 6.0 during implementation"));
+        assertTrue(utf8(lenientErr).contains("threshold above 8.0 is too lenient even for hard gates"));
+        assertTrue(utf8(lenientErr).contains("8.0 default when in doubt"));
+    }
+
+    @Test
+    void doesNotWarnForRecommendedThresholdBoundaries() throws Exception {
+        ByteArrayOutputStream fourErr = new ByteArrayOutputStream();
+        ByteArrayOutputStream eightErr = new ByteArrayOutputStream();
+
+        new CliApplication(tempDir, new PrintStream(new ByteArrayOutputStream()), new PrintStream(fourErr), NOOP_COVERAGE, CoverageMode.GENERATE)
+                .execute(new String[]{"--threshold", "4.0"});
+        new CliApplication(tempDir, new PrintStream(new ByteArrayOutputStream()), new PrintStream(eightErr), NOOP_COVERAGE, CoverageMode.GENERATE)
+                .execute(new String[]{"--threshold", "8.0"});
+
+        assertEquals("", utf8(fourErr));
+        assertEquals("", utf8(eightErr));
     }
 
     @Test
