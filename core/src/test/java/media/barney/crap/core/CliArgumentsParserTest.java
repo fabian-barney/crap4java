@@ -15,6 +15,7 @@ class CliArgumentsParserTest {
         assertEquals(CliMode.ALL_SRC, args.mode());
         assertEquals(BuildToolSelection.AUTO, args.buildToolSelection());
         assertEquals(ReportFormat.TOON, args.reportFormat());
+        assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
     }
 
     @Test
@@ -57,6 +58,7 @@ class CliArgumentsParserTest {
         });
 
         assertEquals(ReportFormat.JSON, args.reportFormat());
+        assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
         assertEquals("target/crap-java/report.json", args.outputPath());
         assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
         assertEquals(List.of("src/main/java/demo/A.java"), args.fileArgs());
@@ -78,6 +80,40 @@ class CliArgumentsParserTest {
     void reportFormatCanOnlyBeProvidedOnce() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--format", "json", "--format", "toon"}));
+    }
+
+    @Test
+    void thresholdIsParsed() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{"--threshold", "6.0", "--changed"});
+
+        assertEquals(CliMode.CHANGED_SRC, args.mode());
+        assertEquals(6.0, args.threshold());
+    }
+
+    @Test
+    void thresholdRequiresValue() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold"}));
+    }
+
+    @Test
+    void thresholdCanOnlyBeProvidedOnce() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "6", "--threshold", "8"}));
+    }
+
+    @Test
+    void thresholdRequiresFinitePositiveNumber() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "0"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "-1"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "NaN"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "Infinity"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold", "low"}));
     }
 
     @Test

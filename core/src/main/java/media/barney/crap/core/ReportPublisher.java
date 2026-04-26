@@ -8,8 +8,6 @@ import java.nio.file.Path;
 
 final class ReportPublisher {
 
-    static final double THRESHOLD = 8.0;
-
     private ReportPublisher() {
     }
 

@@ -34,6 +34,9 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     @Parameter(property = "crapJava.junitReportPath")
     private @Nullable File junitReportPath;
 
+    @Parameter(property = "crapJava.threshold", defaultValue = "8.0")
+    private double threshold = Main.DEFAULT_THRESHOLD;
+
     public CrapJavaCheckMojo() {
         this((useExistingCoverage, args, projectRoot, out, err) -> useExistingCoverage
                 ? Main.runWithExistingCoverage(args, projectRoot, out, err)
@@ -77,6 +80,8 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         return new String[]{
                 "--format",
                 "text",
+                "--threshold",
+                Double.toString(threshold),
                 "--junit-report",
                 junitReportPath(executionRoot).toString()
         };

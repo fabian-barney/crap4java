@@ -18,6 +18,7 @@ class ReportFormatterTest {
         ), ReportFormat.TEXT);
 
         assertTrue(report.contains("Status: passed"));
+        assertTrue(report.contains("Threshold: 8.0"));
         assertTrue(report.contains("CovKind"));
         assertTrue(report.contains("passed"));
         assertTrue(report.contains("skipped"));
@@ -36,6 +37,7 @@ class ReportFormatterTest {
         String expected = """
                 {
                   "status": "failed",
+                  "threshold": 8.0,
                   "methods": [
                     {
                       "status": "failed",
@@ -47,7 +49,6 @@ class ReportFormatterTest {
                       "complexity": 5,
                       "coveragePercent": 10.0,
                       "coverageKind": "instruction",
-                      "threshold": 8.0,
                       "crapScore": 9.645
                     },
                     {
@@ -60,7 +61,6 @@ class ReportFormatterTest {
                       "complexity": 2,
                       "coveragePercent": null,
                       "coverageKind": "N/A",
-                      "threshold": 8.0,
                       "crapScore": null
                     }
                   ]
@@ -78,9 +78,10 @@ class ReportFormatterTest {
         ), ReportFormat.TOON);
 
         assertTrue(report.contains("status: passed"));
-        assertTrue(report.contains("methods[2]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,threshold,crapScore}:"));
-        assertTrue(report.contains("passed,foo,demo.Sample,src/main/java/demo/Sample.java,4,6,3,85,instruction,8,4.5"));
-        assertTrue(report.contains("skipped,bar,demo.Sample,src/main/java/demo/Sample.java,9,11,2,null,N/A,8,null"));
+        assertTrue(report.contains("threshold: 8"));
+        assertTrue(report.contains("methods[2]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,crapScore}:"));
+        assertTrue(report.contains("passed,foo,demo.Sample,src/main/java/demo/Sample.java,4,6,3,85,instruction,4.5"));
+        assertTrue(report.contains("skipped,bar,demo.Sample,src/main/java/demo/Sample.java,9,11,2,null,N/A,null"));
     }
 
     @Test
@@ -91,9 +92,9 @@ class ReportFormatterTest {
         ), ReportFormat.JUNIT);
 
         assertTrue(report.contains("<testsuites tests=\"2\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(report.contains("    <property name=\"threshold\" value=\"8.0\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"instruction\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"N/A\"/>"));
-        assertTrue(report.contains("<property name=\"threshold\" value=\"8.0\"/>"));
         assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"FAILED danger:4 CRAP 9.6\""));
         assertTrue(report.contains("<failure message=\"CRAP threshold exceeded: 9.6 &gt; 8.0\""));
         assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"SKIPPED unknown:20 CRAP N/A\""));
@@ -139,7 +140,7 @@ class ReportFormatterTest {
     }
 
     private static CrapReport report(MethodMetrics... metrics) {
-        return CrapReport.from(List.of(metrics), ReportPublisher.THRESHOLD);
+        return CrapReport.from(List.of(metrics), Main.DEFAULT_THRESHOLD);
     }
 
     private static MethodMetrics metric(String method,

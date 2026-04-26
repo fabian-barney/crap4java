@@ -40,9 +40,10 @@ final class CliApplication {
         }
         CliArguments parsed = parse.arguments();
         try {
+            Main.writeThresholdWarning(err, parsed.threshold());
             List<Path> filesToAnalyze = filesForMode(parsed);
             if (filesToAnalyze.isEmpty()) {
-                CrapReport report = CrapReport.from(List.of(), ReportPublisher.THRESHOLD);
+                CrapReport report = CrapReport.from(List.of(), parsed.threshold());
                 ReportPublisher.publish(report, reportOptions(parsed), out);
                 return 0;
             }
@@ -50,12 +51,12 @@ final class CliApplication {
             List<MethodMetrics> metrics = analyzeByModule(filesToAnalyze, parsed.buildToolSelection());
             metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
                     Comparator.nullsLast(Comparator.reverseOrder())));
-            CrapReport report = CrapReport.from(metrics, ReportPublisher.THRESHOLD);
+            CrapReport report = CrapReport.from(metrics, parsed.threshold());
             ReportPublisher.publish(report, reportOptions(parsed), out);
 
             double max = Main.maxCrap(metrics);
-            if (thresholdExceeded(max)) {
-                err.printf(Locale.ROOT, "CRAP threshold exceeded: %.1f > %.1f%n", max, ReportPublisher.THRESHOLD);
+            if (thresholdExceeded(max, parsed.threshold())) {
+                err.printf(Locale.ROOT, "CRAP threshold exceeded: %.1f > %.1f%n", max, parsed.threshold());
                 return 2;
             }
             return 0;
@@ -82,8 +83,8 @@ final class CliApplication {
         return metrics;
     }
 
-    static boolean thresholdExceeded(double max) {
-        return Double.compare(max, ReportPublisher.THRESHOLD) > 0;
+    static boolean thresholdExceeded(double max, double threshold) {
+        return Double.compare(max, threshold) > 0;
     }
 
     private ParseOutcome parseArguments(String[] args) {

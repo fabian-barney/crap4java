@@ -1,5 +1,6 @@
 package media.barney.crap.gradle;
 
+import media.barney.crap.core.Main;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.TaskProvider;
@@ -17,6 +18,9 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
+        CrapJavaExtension extension = project.getExtensions().create("crapJava", CrapJavaExtension.class);
+        extension.getThreshold().convention(Main.DEFAULT_THRESHOLD);
+
         TaskProvider<CrapJavaCheckTask> checkTask = project.getTasks().register(
                 "crap-java-check",
                 CrapJavaCheckTask.class,
@@ -24,6 +28,7 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
                     task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
                     task.setDescription("Runs the crap-java CRAP metric gate.");
                     task.getAnalysisRoot().set(project.getLayout().getProjectDirectory());
+                    task.getThreshold().convention(extension.getThreshold());
                     task.getJunitReport().convention(project.getLayout().getBuildDirectory()
                             .file("reports/crap-java/TEST-crap-java.xml"));
                 }
