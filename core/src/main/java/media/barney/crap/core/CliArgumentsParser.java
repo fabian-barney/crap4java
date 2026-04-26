@@ -16,6 +16,7 @@ final class CliArgumentsParser {
                     BuildToolSelection.AUTO,
                     ReportFormat.TOON,
                     Thresholds.DEFAULT,
+                    false,
                     null,
                     null,
                     List.of()
@@ -29,6 +30,7 @@ final class CliArgumentsParser {
                     state.buildToolSelection,
                     state.reportFormat,
                     state.threshold,
+                    state.agent,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -43,6 +45,7 @@ final class CliArgumentsParser {
                     state.buildToolSelection,
                     state.reportFormat,
                     state.threshold,
+                    state.agent,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -54,6 +57,7 @@ final class CliArgumentsParser {
                     state.buildToolSelection,
                     state.reportFormat,
                     state.threshold,
+                    state.agent,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -64,6 +68,7 @@ final class CliArgumentsParser {
                 state.buildToolSelection,
                 state.reportFormat,
                 state.threshold,
+                state.agent,
                 state.outputPath,
                 state.junitReportPath,
                 List.copyOf(values)
@@ -96,6 +101,15 @@ final class CliArgumentsParser {
             state.changed = true;
             return index;
         }
+        if ("--agent".equals(arg)) {
+            state.agent = parseAgent(state.agentSeen);
+            state.agentSeen = true;
+            return index;
+        }
+        return parseValuedOption(args, index, state, arg);
+    }
+
+    private static int parseValuedOption(String[] args, int index, ParseStateBuilder state, String arg) {
         if ("--build-tool".equals(arg)) {
             state.buildToolSelection = parseBuildTool(args, index, state.buildToolSeen);
             state.buildToolSeen = true;
@@ -122,6 +136,13 @@ final class CliArgumentsParser {
             return index + 1;
         }
         throw new IllegalArgumentException("Unknown option: " + arg);
+    }
+
+    private static boolean parseAgent(boolean agentSeen) {
+        if (agentSeen) {
+            throw new IllegalArgumentException("--agent can only be provided once");
+        }
+        return true;
     }
 
     private static BuildToolSelection parseBuildTool(String[] args, int index, boolean buildToolSeen) {
@@ -174,11 +195,18 @@ final class CliArgumentsParser {
         }
     }
 
+    private static void ensureAgentFormatIsSupported(boolean agent, ReportFormat reportFormat) {
+        if (agent && reportFormat == ReportFormat.JUNIT) {
+            throw new IllegalArgumentException("--agent cannot be combined with --format junit");
+        }
+    }
+
     private record ParseState(boolean help,
                               boolean changed,
                               BuildToolSelection buildToolSelection,
                               ReportFormat reportFormat,
                               double threshold,
+                              boolean agent,
                               @Nullable String outputPath,
                               @Nullable String junitReportPath,
                               List<String> fileArgs) {
@@ -193,6 +221,8 @@ final class CliArgumentsParser {
         private boolean reportFormatSeen;
         private double threshold = Thresholds.DEFAULT;
         private boolean thresholdSeen;
+        private boolean agent;
+        private boolean agentSeen;
         private @Nullable String outputPath;
         private boolean outputPathSeen;
         private @Nullable String junitReportPath;
@@ -200,7 +230,8 @@ final class CliArgumentsParser {
         private final List<String> values = new ArrayList<>();
 
         private ParseState build() {
-            return new ParseState(help, changed, buildToolSelection, reportFormat, threshold, outputPath, junitReportPath, values);
+            ensureAgentFormatIsSupported(agent, reportFormat);
+            return new ParseState(help, changed, buildToolSelection, reportFormat, threshold, agent, outputPath, junitReportPath, values);
         }
     }
 }

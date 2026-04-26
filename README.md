@@ -108,6 +108,7 @@ java -jar cli/target/crap-java-cli-0.4.1.jar
 --changed             Analyze changed Java files under any nested src/main/java tree
 --build-tool <tool>   Force `auto`, `maven`, or `gradle`
 --format <format>     Write `toon`, `json`, `text`, or `junit` output (`toon` by default)
+--agent               Write compact primary output for agents (failures only)
 --output <path>       Write the selected output format to a file instead of stdout
 --junit-report <path> Also write a JUnit XML report for CI test-report UIs
 --threshold <number>  Override the CRAP threshold (`8.0` by default)
@@ -124,6 +125,7 @@ java -jar cli/target/crap-java-cli-0.4.1.jar --changed
 java -jar cli/target/crap-java-cli-0.4.1.jar --build-tool gradle
 java -jar cli/target/crap-java-cli-0.4.1.jar --format json
 java -jar cli/target/crap-java-cli-0.4.1.jar --format text
+java -jar cli/target/crap-java-cli-0.4.1.jar --agent --format json
 java -jar cli/target/crap-java-cli-0.4.1.jar --format junit --output target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.4.1.jar --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.4.1.jar --threshold 6
@@ -132,12 +134,19 @@ java -jar cli/target/crap-java-cli-0.4.1.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.4.1.jar module-a module-b
 ```
 
-The CLI writes only the requested report format to stdout, making the default
-TOON output suitable for agent workflows. Warnings and threshold errors are
-written to stderr. Machine-readable reports include top-level `status`
+The CLI writes only the requested report format to stdout. Warnings and
+threshold errors are written to stderr. Machine-readable reports include
+top-level `status`
 (`passed` or `failed`) and `threshold` values, plus method-level
 `coverageKind` values identifying the coverage input used for each CRAP score
 (`instruction`, `branch`, or `N/A`).
+
+Use `--agent` for compact primary output that always keeps the top-level
+`status` and `threshold` and omits passing and skipped methods. Agent mode
+defaults to TOON and supports `--format toon`, `--format json`, and
+`--format text`; `--agent --format junit` is rejected because JUnit XML is not
+token-optimized. `--junit-report <path>` can still be combined with `--agent`
+to write the complete unfiltered JUnit report as a sidecar.
 
 The default threshold is `8.0`. Values below `4.0` print a warning because they
 are likely too noisy; values above `8.0` print a warning because they are too

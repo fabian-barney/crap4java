@@ -8,6 +8,7 @@ record CliArguments(
         BuildToolSelection buildToolSelection,
         ReportFormat reportFormat,
         double threshold,
+        boolean agent,
         @Nullable String outputPath,
         @Nullable String junitReportPath,
         List<String> fileArgs

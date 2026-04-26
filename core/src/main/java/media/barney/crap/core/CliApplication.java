@@ -114,6 +114,7 @@ final class CliApplication {
     private ReportOptions reportOptions(CliArguments parsed) {
         return new ReportOptions(
                 parsed.reportFormat(),
+                parsed.agent(),
                 outputPath(parsed.outputPath()),
                 outputPath(parsed.junitReportPath())
         );
