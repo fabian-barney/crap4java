@@ -5,10 +5,11 @@ import org.jspecify.annotations.Nullable;
 
 record ReportOptions(
         ReportFormat format,
+        boolean agent,
         @Nullable Path outputPath,
         @Nullable Path junitReportPath
 ) {
     static ReportOptions textWithOptionalJunit(@Nullable Path junitReportPath) {
-        return new ReportOptions(ReportFormat.TEXT, null, junitReportPath);
+        return new ReportOptions(ReportFormat.TEXT, false, null, junitReportPath);
     }
 }

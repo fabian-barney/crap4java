@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReportFormatterTest {
@@ -82,6 +83,81 @@ class ReportFormatterTest {
         assertTrue(report.contains("methods[2]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,crapScore}:"));
         assertTrue(report.contains("passed,foo,demo.Sample,src/main/java/demo/Sample.java,4,6,3,85,instruction,4.5"));
         assertTrue(report.contains("skipped,bar,demo.Sample,src/main/java/demo/Sample.java,9,11,2,null,N/A,null"));
+    }
+
+    @Test
+    void formatsAgentJsonWithOnlyFailuresAndGlobalStatusThreshold() {
+        String report = ReportFormatter.format(report(
+                metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
+                metric("safe", "demo.Sample", 9, 1, 100.0, 1.0),
+                metric("unknown", "demo.Sample", 20, 2, null, null)
+        ), ReportFormat.JSON, true);
+
+        String expected = """
+                {
+                  "status": "failed",
+                  "threshold": 8.0,
+                  "methods": [
+                    {
+                      "status": "failed",
+                      "methodName": "danger",
+                      "className": "demo.Sample",
+                      "sourcePath": "src/main/java/demo/Sample.java",
+                      "startLine": 4,
+                      "endLine": 6,
+                      "complexity": 5,
+                      "coveragePercent": 10.0,
+                      "coverageKind": "instruction",
+                      "crapScore": 9.645
+                    }
+                  ]
+                }
+                """;
+
+        assertEquals(expected, report);
+    }
+
+    @Test
+    void formatsAgentToonWithOnlyFailures() {
+        String report = ReportFormatter.format(report(
+                metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
+                metric("safe", "demo.Sample", 9, 1, 100.0, 1.0)
+        ), ReportFormat.TOON, true);
+
+        assertTrue(report.contains("status: failed"));
+        assertTrue(report.contains("threshold: 8"));
+        assertTrue(report.contains("methods[1]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,crapScore}:"));
+        assertTrue(report.contains("failed,danger,demo.Sample,src/main/java/demo/Sample.java,4,6,5,10,instruction,9.645"));
+    }
+
+    @Test
+    void formatsAgentTextWithOnlyFailures() {
+        String report = ReportFormatter.format(report(
+                metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
+                metric("safe", "demo.Sample", 9, 1, 100.0, 1.0),
+                metric("unknown", "demo.Sample", 20, 2, null, null)
+        ), ReportFormat.TEXT, true);
+
+        assertTrue(report.startsWith("Status: failed\nThreshold: 8.0\n"));
+        assertTrue(report.contains("Method"));
+        assertTrue(report.contains("danger"));
+        assertTrue(report.contains("9.6"));
+        assertFalse(report.contains("safe"));
+        assertFalse(report.contains("unknown"));
+        assertFalse(report.contains("CRAP Report"));
+    }
+
+    @Test
+    void formatsAgentTextWithoutMethodRowsWhenPassed() {
+        String report = ReportFormatter.format(report(
+                metric("safe", "demo.Sample", 9, 1, 100.0, 1.0),
+                metric("unknown", "demo.Sample", 20, 2, null, null)
+        ), ReportFormat.TEXT, true);
+
+        assertEquals("""
+                Status: passed
+                Threshold: 8.0
+                """, report);
     }
 
     @Test

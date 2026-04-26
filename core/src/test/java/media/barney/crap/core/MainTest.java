@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainTest {
@@ -32,6 +33,7 @@ class MainTest {
         assertTrue(utf8(out).contains("Usage:"));
         assertTrue(utf8(out).contains("--build-tool"));
         assertTrue(utf8(out).contains("--format"));
+        assertTrue(utf8(out).contains("--agent"));
         assertTrue(utf8(out).contains("--threshold"));
     }
 
@@ -222,6 +224,84 @@ class MainTest {
         assertEquals("", utf8(err));
         assertTrue(Files.readString(jsonReport).contains("\"coverageKind\": \"instruction\""));
         assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+    }
+
+    @Test
+    void agentModeFiltersPrimaryOutputButKeepsJunitSidecarComplete() throws Exception {
+        Files.writeString(tempDir.resolve("pom.xml"), "<project/>");
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                class Sample {
+                    int danger(boolean left, boolean right) {
+                        if (left) {
+                            return 1;
+                        }
+                        if (right) {
+                            return 2;
+                        }
+                        return 0;
+                    }
+
+                    int safe() {
+                        return 1;
+                    }
+
+                    int unknown() {
+                        return 2;
+                    }
+                }
+                """);
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Files.createDirectories(jacocoXml.getParent());
+        Files.writeString(jacocoXml, """
+                <report name="demo">
+                  <package name="demo">
+                    <class name="demo/Sample" sourcefilename="Sample.java">
+                      <method name="danger" desc="(ZZ)I" line="4">
+                        <counter type="INSTRUCTION" missed="10" covered="0"/>
+                      </method>
+                      <method name="safe" desc="()I" line="14">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+        Path jsonReport = tempDir.resolve("target/crap-java/agent.json");
+        Path junitReport = tempDir.resolve("target/crap-java/TEST-crap-java.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                new String[]{
+                        "--agent",
+                        "--format", "json",
+                        "--output", "target/crap-java/agent.json",
+                        "--junit-report", "target/crap-java/TEST-crap-java.xml",
+                        "src/main/java/demo/Sample.java"
+                },
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err)
+        );
+
+        String primary = Files.readString(jsonReport);
+        String junit = Files.readString(junitReport);
+        assertEquals(2, exit);
+        assertEquals("", utf8(out));
+        assertTrue(primary.contains("\"status\": \"failed\""));
+        assertTrue(primary.contains("\"threshold\": 8.0"));
+        assertTrue(primary.contains("\"methodName\": \"danger\""));
+        assertFalse(primary.contains("\"methodName\": \"safe\""));
+        assertFalse(primary.contains("\"methodName\": \"unknown\""));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("FAILED danger"));
+        assertTrue(junit.contains("PASSED safe"));
+        assertTrue(junit.contains("SKIPPED unknown"));
     }
 
     @Test

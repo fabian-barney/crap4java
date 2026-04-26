@@ -13,11 +13,29 @@ final class ReportFormatter {
     }
 
     static String format(CrapReport report, ReportFormat format) {
+        return format(report, format, false);
+    }
+
+    static String format(CrapReport report, ReportFormat format, boolean agent) {
+        return agent ? formatAgent(report, format) : formatFull(report, format);
+    }
+
+    private static String formatFull(CrapReport report, ReportFormat format) {
         return switch (format) {
             case TOON -> JToon.encodeJson(formatJson(report));
             case JSON -> formatJson(report);
             case TEXT -> formatText(report);
             case JUNIT -> formatJunit(report);
+        };
+    }
+
+    private static String formatAgent(CrapReport report, ReportFormat format) {
+        CrapReport failures = failuresOnly(report);
+        return switch (format) {
+            case TOON -> JToon.encodeJson(formatJson(failures));
+            case JSON -> formatJson(failures);
+            case TEXT -> formatAgentText(report);
+            case JUNIT -> throw new IllegalArgumentException("--agent cannot be combined with --format junit");
         };
     }
 
@@ -54,6 +72,38 @@ final class ReportFormatter {
             builder.append('\n');
         }
 
+        return builder.toString();
+    }
+
+    private static String formatAgentText(CrapReport report) {
+        List<CrapReport.MethodReport> failedMethods = sortedMethods(failuresOnly(report).methods());
+        StringBuilder builder = new StringBuilder();
+        builder.append("Status: ").append(report.status()).append('\n');
+        builder.append("Threshold: ").append(formatDisplayNumber(report.threshold())).append('\n');
+        if (failedMethods.isEmpty()) {
+            return builder.toString();
+        }
+        String header = String.format(
+                "%-30s %-35s %4s %7s %-11s %8s",
+                "Method",
+                "Class",
+                "CC",
+                "Cov%",
+                "CovKind",
+                "CRAP"
+        );
+        builder.append(header).append('\n');
+        builder.append("-".repeat(header.length())).append('\n');
+        for (CrapReport.MethodReport entry : failedMethods) {
+            builder.append(String.format(Locale.ROOT, "%-30s %-35s %4d %7s %-11s %8s",
+                    entry.methodName(),
+                    entry.className(),
+                    entry.complexity(),
+                    formatCoverage(entry.coveragePercent()),
+                    entry.coverageKind(),
+                    formatDisplayNumber(entry.crapScore())));
+            builder.append('\n');
+        }
         return builder.toString();
     }
 
@@ -197,6 +247,13 @@ final class ReportFormatter {
                 .thenComparing(CrapReport.MethodReport::methodName)
                 .thenComparingInt(CrapReport.MethodReport::startLine));
         return sorted;
+    }
+
+    private static CrapReport failuresOnly(CrapReport report) {
+        List<CrapReport.MethodReport> failedMethods = report.methods().stream()
+                .filter(method -> method.status() == MethodStatus.FAILED)
+                .toList();
+        return new CrapReport(report.status(), report.threshold(), failedMethods);
     }
 
     private static String formatCoverage(@Nullable Double coverage) {

@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CliArgumentsParserTest {
 
@@ -16,6 +18,7 @@ class CliArgumentsParserTest {
         assertEquals(BuildToolSelection.AUTO, args.buildToolSelection());
         assertEquals(ReportFormat.TOON, args.reportFormat());
         assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
+        assertFalse(args.agent());
     }
 
     @Test
@@ -59,9 +62,49 @@ class CliArgumentsParserTest {
 
         assertEquals(ReportFormat.JSON, args.reportFormat());
         assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
+        assertFalse(args.agent());
         assertEquals("target/crap-java/report.json", args.outputPath());
         assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
         assertEquals(List.of("src/main/java/demo/A.java"), args.fileArgs());
+    }
+
+    @Test
+    void agentModeDefaultsToToon() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{"--agent", "--changed"});
+
+        assertEquals(CliMode.CHANGED_SRC, args.mode());
+        assertEquals(ReportFormat.TOON, args.reportFormat());
+        assertTrue(args.agent());
+    }
+
+    @Test
+    void agentModeAllowsNonJunitPrimaryFormatsJunitSidecarAndThreshold() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{
+                "--agent",
+                "--format", "text",
+                "--junit-report", "target/crap-java/TEST-crap-java.xml",
+                "--threshold", "6.0",
+                "--changed"
+        });
+
+        assertEquals(ReportFormat.TEXT, args.reportFormat());
+        assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
+        assertEquals(6.0, args.threshold());
+        assertTrue(args.agent());
+    }
+
+    @Test
+    void agentModeRejectsJunitPrimaryFormat() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--agent", "--format", "junit"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--format", "junit", "--agent"}));
+    }
+
+    @Test
+    void agentModeCanOnlyBeProvidedOnce() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--agent", "--agent"}));
     }
 
     @Test

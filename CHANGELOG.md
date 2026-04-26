@@ -7,6 +7,7 @@
 - CRAP scoring now uses the worse method coverage out of JaCoCo instruction and branch counters, reporting the selected coverage kind per method.
 - Simplified machine-readable reports to a top-level status plus method-level entries.
 - CRAP threshold is now configurable through the CLI, Maven plugin, and Gradle plugin, and reports expose the threshold as a global value.
+- Added CLI agent mode for compact failures-only primary output while keeping sidecar JUnit reports complete.
 
 ## 0.4.1 - 2026-04-08
 
