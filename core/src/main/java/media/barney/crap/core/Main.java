@@ -77,17 +77,18 @@ public final class Main {
                                               @Nullable Path outputPath,
                                               @Nullable Path junitReportPath,
                                               double threshold) throws Exception {
+        Path normalizedReportRoot = reportRoot.toAbsolutePath().normalize();
         return runResolvedModules(
                 modules,
-                reportRoot.toAbsolutePath().normalize(),
+                normalizedReportRoot,
                 out,
                 err,
                 new ReportOptions(
                         ReportFormat.parse(reportFormat),
                         failuresOnly,
                         omitRedundancy,
-                        normalize(outputPath),
-                        normalize(junitReportPath)
+                        normalize(normalizedReportRoot, outputPath),
+                        normalize(normalizedReportRoot, junitReportPath)
                 ),
                 threshold
         );
@@ -170,8 +171,12 @@ public final class Main {
         }
     }
 
-    private static @Nullable Path normalize(@Nullable Path path) {
-        return path == null ? null : path.toAbsolutePath().normalize();
+    private static @Nullable Path normalize(Path root, @Nullable Path path) {
+        if (path == null) {
+            return null;
+        }
+        Path normalized = path.normalize();
+        return normalized.isAbsolute() ? normalized : root.resolve(normalized).normalize();
     }
 
     private static Path commonRoot(List<ResolvedCoverageModule> modules) {

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -298,9 +299,10 @@ class CrapJavaGradlePluginTest {
         task.getJunitReport().fileValue(junitReport.toFile());
         task.runCheck();
         String originalReport = Files.readString(junitReport);
+        FileTime originalModified = Files.getLastModifiedTime(junitReport);
         Files.delete(junitReport);
-        Thread.sleep(20);
         Files.writeString(junitReport, originalReport);
+        Files.setLastModifiedTime(junitReport, FileTime.fromMillis(originalModified.toMillis() + 5_000));
 
         task.getJunit().set(false);
         task.runCheck();

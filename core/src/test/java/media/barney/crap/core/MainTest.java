@@ -464,6 +464,34 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoveragePreResolvedModulesResolvesRelativeReportPathsAgainstReportRoot() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path jsonReport = Path.of("target/crap-java/relative.json");
+        Path junitReport = Path.of("target/crap-java/TEST-relative.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                "json",
+                false,
+                false,
+                jsonReport,
+                junitReport,
+                8.0
+        );
+
+        assertEquals(2, exit);
+        assertTrue(Files.exists(tempDir.resolve(jsonReport)));
+        assertTrue(Files.exists(tempDir.resolve(junitReport)));
+    }
+
+    @Test
     void runWithExistingCoverageRejectsSharedPrimaryAndJunitReportPath() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
