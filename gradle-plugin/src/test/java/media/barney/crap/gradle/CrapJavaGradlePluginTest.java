@@ -268,7 +268,7 @@ class CrapJavaGradlePluginTest {
         task.runCheck();
 
         assertTrue(Files.exists(builtInJunit));
-        assertFalse(Files.exists(customJunit));
+        assertTrue(Files.exists(customJunit));
     }
 
     @Test

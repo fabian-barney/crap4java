@@ -250,15 +250,14 @@ class CrapJavaGradlePluginFunctionalTest {
     @Test
     void disabledJunitRemovesStaleSidecarAndDoesNotWriteNewSidecar() throws Exception {
         Path defaultJunit = tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml");
-        Path customJunit = tempDir.resolve("build/reports/crap-java/custom-junit.xml");
-        Files.createDirectories(defaultJunit.getParent());
-        Files.writeString(defaultJunit, "<testsuites tests=\"99\"/>");
-        Files.writeString(customJunit, "<testsuites tests=\"88\"/>");
+        writeSingleModuleProject();
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(defaultJunit));
         writeSingleModuleProject("""
 
                 crapJava {
                     junit.set(false)
-                    junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
                 }
                 """);
 
@@ -266,7 +265,6 @@ class CrapJavaGradlePluginFunctionalTest {
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
         assertFalse(Files.exists(defaultJunit));
-        assertFalse(Files.exists(customJunit));
         assertFalse(result.getOutput().contains("<testsuites"));
         assertFalse(result.getOutput().contains("CRAP Report"));
     }
@@ -372,7 +370,7 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     @Test
-    void disabledJunitReportPathChangeInvalidatesCleanupTask() throws Exception {
+    void disabledJunitReportPathChangeInvalidatesTaskWithoutDeletingUnownedFile() throws Exception {
         Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
         writeSingleModuleProject("""
 
@@ -396,7 +394,7 @@ class CrapJavaGradlePluginFunctionalTest {
         BuildResult secondResult = runBuild("crap-java-check");
 
         assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
-        assertFalse(Files.exists(newJunit));
+        assertTrue(Files.exists(newJunit));
     }
 
     @Test
@@ -458,7 +456,101 @@ class CrapJavaGradlePluginFunctionalTest {
         assertFalse(Files.exists(oldOutput));
     }
 
+    @Test
+    void primaryOutputCleanupDoesNotDeleteRecreatedExternalOutputAfterClean() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.writeString(oldOutput, "unrelated");
+        writeSingleModuleProject();
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertEquals("unrelated", Files.readString(oldOutput));
+    }
+
+    @Test
+    void disabledJunitDoesNotDeleteRecreatedExternalSidecarAfterClean() throws Exception {
+        Path oldJunit = tempDir.resolve("outside-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.projectDirectory.file("outside-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.writeString(oldJunit, "unrelated");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertEquals("unrelated", Files.readString(oldJunit));
+    }
+
+    @Test
+    void invalidReportPathDoesNotDeletePreviousOutput() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        writeSingleModuleProject("""
+
+                crapJava {
+                    output.set(layout.buildDirectory.file("reports/crap-java/collision.xml"))
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/collision.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuildAndFail("crap-java-check");
+
+        assertTrue(secondResult.getOutput().contains("output and junitReport must not point to the same file"));
+        assertTrue(Files.exists(oldOutput));
+    }
+
+    @Test
+    void reportPathsMustNotUseInternalTaskFiles() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    output.set(layout.buildDirectory.file("tmp/crap-java/crap-java-check/execution.marker"))
+                }
+                """);
+
+        BuildResult result = runBuildAndFail("crap-java-check");
+
+        assertTrue(result.getOutput().contains("output must not point to a crap-java internal task file"));
+    }
+
     private BuildResult runBuild(String... arguments) {
+        return gradleRunner(arguments).build();
+    }
+
+    private BuildResult runBuildAndFail(String... arguments) {
+        return gradleRunner(arguments).buildAndFail();
+    }
+
+    private GradleRunner gradleRunner(String... arguments) {
         List<String> gradleArguments = new ArrayList<>();
         gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));
         gradleArguments.add("-Dorg.gradle.daemon=false");
@@ -466,8 +558,7 @@ class CrapJavaGradlePluginFunctionalTest {
         return GradleRunner.create()
                 .withProjectDir(tempDir.toFile())
                 .withArguments(gradleArguments)
-                .withPluginClasspath()
-                .build();
+                .withPluginClasspath();
     }
 
     private void writeSingleModuleProject() throws IOException {
