@@ -215,8 +215,9 @@ class CliArgumentsParserTest {
 
     @Test
     void reportFormatRequiresValue() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--format"}));
+        assertEquals("--format requires one of: toon, json, text, junit, none", error.getMessage());
     }
 
     @Test

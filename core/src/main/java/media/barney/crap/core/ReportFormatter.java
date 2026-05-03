@@ -38,6 +38,9 @@ final class ReportFormatter {
     }
 
     static String format(CrapReport report, ReportFormat format, boolean failuresOnly, boolean omitRedundancy) {
+        if (format == ReportFormat.NONE) {
+            return "";
+        }
         return formatFull(failuresOnly ? failuresOnly(report) : report, format, omitRedundancy);
     }
 
