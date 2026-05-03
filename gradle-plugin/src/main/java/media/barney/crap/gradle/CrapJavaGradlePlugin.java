@@ -3,14 +3,15 @@ package media.barney.crap.gradle;
 import media.barney.crap.core.Main;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
 import org.gradle.testing.jacoco.tasks.JacocoReport;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-import java.nio.file.Path;
 
 public class CrapJavaGradlePlugin implements Plugin<Project> {
 
@@ -20,6 +21,8 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
     public void apply(Project project) {
         CrapJavaExtension extension = project.getExtensions().create("crapJava", CrapJavaExtension.class);
         extension.getThreshold().convention(Main.DEFAULT_THRESHOLD);
+        extension.getAgent().convention(false);
+        extension.getJunit().convention(true);
 
         TaskProvider<CrapJavaCheckTask> checkTask = project.getTasks().register(
                 "crap-java-check",
@@ -29,8 +32,19 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
                     task.setDescription("Runs the crap-java CRAP metric gate.");
                     task.getAnalysisRoot().set(project.getLayout().getProjectDirectory());
                     task.getThreshold().convention(extension.getThreshold());
-                    task.getJunitReport().convention(project.getLayout().getBuildDirectory()
-                            .file("reports/crap-java/TEST-crap-java.xml"));
+                    task.getAgent().convention(extension.getAgent());
+                    Provider<String> effectiveFormat = extension.getFormat().orElse(task.getAgent()
+                            .map(agent -> agent ? "toon" : "none"));
+                    Provider<Boolean> effectiveFailuresOnly = extension.getFailuresOnly().orElse(task.getAgent());
+                    Provider<Boolean> effectiveOmitRedundancy = extension.getOmitRedundancy().orElse(task.getAgent());
+                    task.getFormat().convention(effectiveFormat);
+                    task.getFailuresOnly().convention(effectiveFailuresOnly);
+                    task.getOmitRedundancy().convention(effectiveOmitRedundancy);
+                    task.getOutput().convention(extension.getOutput());
+                    task.getJunit().convention(extension.getJunit());
+                    task.getJunitReport().convention(extension.getJunitReport()
+                            .orElse(project.getLayout().getBuildDirectory()
+                                    .file("reports/crap-java/TEST-crap-java.xml")));
                 }
         );
 

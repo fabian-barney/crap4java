@@ -44,7 +44,27 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     @Input
     public abstract Property<Double> getThreshold();
 
+    @Input
+    public abstract Property<String> getFormat();
+
+    @Input
+    public abstract Property<Boolean> getAgent();
+
+    @Input
+    public abstract Property<Boolean> getFailuresOnly();
+
+    @Input
+    public abstract Property<Boolean> getOmitRedundancy();
+
     @OutputFile
+    @Optional
+    public abstract RegularFileProperty getOutput();
+
+    @Input
+    public abstract Property<Boolean> getJunit();
+
+    @OutputFile
+    @Optional
     public abstract RegularFileProperty getJunitReport();
 
     @TaskAction
@@ -54,22 +74,57 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 .sorted()
                 .toList();
         Path analysisRoot = getAnalysisRoot().get().getAsFile().toPath().toAbsolutePath().normalize();
-        Path junitReport = getJunitReport().get().getAsFile().toPath().toAbsolutePath().normalize();
         if (sourceFiles.isEmpty()) {
             try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
                  var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-                Main.runWithExistingCoverage(List.of(), analysisRoot, out, err, junitReport, getThreshold().get());
+                Main.runWithExistingCoverage(
+                        List.of(),
+                        analysisRoot,
+                        out,
+                        err,
+                        getFormat().get(),
+                        getFailuresOnly().get(),
+                        getOmitRedundancy().get(),
+                        outputPath(),
+                        junitReportPath(),
+                        getThreshold().get()
+                );
             }
             return;
         }
         List<Main.ResolvedCoverageModule> modules = resolvedModules(sourceFiles);
         try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
              var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-            int exit = Main.runWithExistingCoverage(modules, analysisRoot, out, err, junitReport, getThreshold().get());
+            int exit = Main.runWithExistingCoverage(
+                    modules,
+                    analysisRoot,
+                    out,
+                    err,
+                    getFormat().get(),
+                    getFailuresOnly().get(),
+                    getOmitRedundancy().get(),
+                    outputPath(),
+                    junitReportPath(),
+                    getThreshold().get()
+            );
             if (exit != 0) {
                 throw new GradleException("crap-java-check failed with exit " + exit);
             }
         }
+    }
+
+    private Path outputPath() {
+        if (!getOutput().isPresent()) {
+            return null;
+        }
+        return getOutput().get().getAsFile().toPath().toAbsolutePath().normalize();
+    }
+
+    private Path junitReportPath() {
+        if (!getJunit().get()) {
+            return null;
+        }
+        return getJunitReport().get().getAsFile().toPath().toAbsolutePath().normalize();
     }
 
     private List<Main.ResolvedCoverageModule> resolvedModules(List<Path> sourceFiles) {

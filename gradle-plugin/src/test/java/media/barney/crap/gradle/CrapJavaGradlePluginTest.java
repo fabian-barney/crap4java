@@ -35,7 +35,15 @@ class CrapJavaGradlePluginTest {
         assertEquals("verification", checkTask.getGroup());
         assertEquals("Runs the crap-java CRAP metric gate.", checkTask.getDescription());
         assertEquals(8.0, extension.getThreshold().get());
+        assertFalse(extension.getAgent().get());
+        assertTrue(extension.getJunit().get());
         assertEquals(8.0, checkTask.getThreshold().get());
+        assertEquals("none", checkTask.getFormat().get());
+        assertFalse(checkTask.getAgent().get());
+        assertFalse(checkTask.getFailuresOnly().get());
+        assertFalse(checkTask.getOmitRedundancy().get());
+        assertFalse(checkTask.getOutput().isPresent());
+        assertTrue(checkTask.getJunit().get());
         Set<String> dependencyNames = checkTask.getTaskDependencies().getDependencies(checkTask).stream()
                 .map(Task::getName)
                 .collect(Collectors.toSet());
@@ -58,6 +66,63 @@ class CrapJavaGradlePluginTest {
         CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
 
         assertEquals(6.0, checkTask.getThreshold().get());
+    }
+
+    @Test
+    void configuredExtensionReportControlsFlowToCheckTask() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        project.getPluginManager().apply("java");
+        project.getPluginManager().apply(CrapJavaGradlePlugin.class);
+        CrapJavaExtension extension = project.getExtensions().getByType(CrapJavaExtension.class);
+        Path output = tempDir.resolve("build/reports/crap-java/report.json");
+        Path junitReport = tempDir.resolve("build/reports/crap-java/custom-junit.xml");
+        extension.getFormat().set("json");
+        extension.getAgent().set(true);
+        extension.getFailuresOnly().set(false);
+        extension.getOmitRedundancy().set(true);
+        extension.getOutput().fileValue(output.toFile());
+        extension.getJunit().set(false);
+        extension.getJunitReport().fileValue(junitReport.toFile());
+
+        CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+
+        assertEquals("json", checkTask.getFormat().get());
+        assertTrue(checkTask.getAgent().get());
+        assertFalse(checkTask.getFailuresOnly().get());
+        assertTrue(checkTask.getOmitRedundancy().get());
+        assertEquals(output.normalize(), checkTask.getOutput().get().getAsFile().toPath().normalize());
+        assertFalse(checkTask.getJunit().get());
+        assertEquals(junitReport.normalize(), checkTask.getJunitReport().get().getAsFile().toPath().normalize());
+    }
+
+    @Test
+    void agentExtensionComposesPrimaryDefaultsWhenControlsAreUnset() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        project.getPluginManager().apply("java");
+        project.getPluginManager().apply(CrapJavaGradlePlugin.class);
+        project.getExtensions().getByType(CrapJavaExtension.class).getAgent().set(true);
+
+        CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+
+        assertEquals("toon", checkTask.getFormat().get());
+        assertTrue(checkTask.getFailuresOnly().get());
+        assertTrue(checkTask.getOmitRedundancy().get());
+    }
+
+    @Test
+    void taskAgentComposesPrimaryDefaultsWhenControlsAreUnset() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        project.getPluginManager().apply("java");
+        project.getPluginManager().apply(CrapJavaGradlePlugin.class);
+        CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+        checkTask.getAgent().set(true);
+
+        assertEquals("toon", checkTask.getFormat().get());
+        assertTrue(checkTask.getFailuresOnly().get());
+        assertTrue(checkTask.getOmitRedundancy().get());
     }
 
     @Test
@@ -96,6 +161,11 @@ class CrapJavaGradlePluginTest {
         task.getCoverageReports().from(jacocoXml);
         task.getModuleCoverageReports().put(".", "build/reports/jacoco/test/jacocoTestReport.xml");
         task.getThreshold().set(8.0);
+        task.getFormat().set("none");
+        task.getAgent().set(false);
+        task.getFailuresOnly().set(false);
+        task.getOmitRedundancy().set(false);
+        task.getJunit().set(true);
         Path junitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         task.getJunitReport().fileValue(junitReport.toFile());
 

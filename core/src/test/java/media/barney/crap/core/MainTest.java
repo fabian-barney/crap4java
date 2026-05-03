@@ -426,6 +426,43 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoveragePreResolvedModulesHonorsPrimaryReportControls() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path jsonReport = tempDir.resolve("target/crap-java/gradle.json");
+        Path junitReport = tempDir.resolve("target/crap-java/TEST-crap-java.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                "json",
+                true,
+                true,
+                jsonReport,
+                junitReport,
+                8.0
+        );
+
+        String primary = Files.readString(jsonReport);
+        String junit = Files.readString(junitReport);
+        assertEquals(2, exit);
+        assertEquals("", utf8(out));
+        assertTrue(primary.contains("\"status\": \"failed\""));
+        assertFalse(primary.contains("      \"status\":"));
+        assertTrue(primary.contains("\"method\": \"danger\""));
+        assertFalse(primary.contains("\"method\": \"safe\""));
+        assertFalse(primary.contains("\"method\": \"unknown\""));
+        assertTrue(junit.contains("FAILED danger"));
+        assertTrue(junit.contains("PASSED safe"));
+        assertTrue(junit.contains("SKIPPED unknown"));
+    }
+
+    @Test
     void runWithExistingCoverageAnalyzesPreResolvedModules() throws Exception {
         Path moduleRoot = tempDir.resolve("app");
         Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
