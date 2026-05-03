@@ -147,6 +147,37 @@ class ReportFormatterTest {
     }
 
     @Test
+    void formatsFailuresOnlyJsonWithOnlyFailedMethods() {
+        String report = ReportFormatter.format(report(
+                metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
+                metric("safe", "demo.Sample", 9, 1, 100.0, 1.0),
+                metric("unknown", "demo.Sample", 20, 2, null, null)
+        ), ReportFormat.JSON, false, true);
+
+        String expected = """
+                {
+                  "status": "failed",
+                  "threshold": 8.0,
+                  "methods": [
+                    {
+                      "status": "failed",
+                      "crap": 9.645,
+                      "cc": 5,
+                      "cov": 10.0,
+                      "covKind": "instruction",
+                      "method": "danger",
+                      "src": "demo.Sample",
+                      "lineStart": 4,
+                      "lineEnd": 6
+                    }
+                  ]
+                }
+                """;
+
+        assertEquals(expected, report);
+    }
+
+    @Test
     void formatsAgentToonWithOnlyFailures() {
         String report = ReportFormatter.format(report(
                 metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),

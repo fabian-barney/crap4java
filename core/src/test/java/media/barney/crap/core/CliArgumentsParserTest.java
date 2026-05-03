@@ -19,6 +19,7 @@ class CliArgumentsParserTest {
         assertEquals(ReportFormat.TOON, args.reportFormat());
         assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
         assertFalse(args.agent());
+        assertFalse(args.failuresOnly());
     }
 
     @Test
@@ -63,6 +64,7 @@ class CliArgumentsParserTest {
         assertEquals(ReportFormat.JSON, args.reportFormat());
         assertEquals(Main.DEFAULT_THRESHOLD, args.threshold());
         assertFalse(args.agent());
+        assertFalse(args.failuresOnly());
         assertEquals("target/crap-java/report.json", args.outputPath());
         assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
         assertEquals(List.of("src/main/java/demo/A.java"), args.fileArgs());
@@ -105,6 +107,37 @@ class CliArgumentsParserTest {
     void agentModeCanOnlyBeProvidedOnce() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--agent", "--agent"}));
+    }
+
+    @Test
+    void failuresOnlyFlagDefaultsToTrueWhenUnassigned() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{"--failures-only", "--changed"});
+
+        assertEquals(CliMode.CHANGED_SRC, args.mode());
+        assertTrue(args.failuresOnly());
+    }
+
+    @Test
+    void failuresOnlyFlagAcceptsExplicitBooleanAssignments() {
+        CliArguments enabled = CliArgumentsParser.parse(new String[]{"--failures-only=true", "--changed"});
+        CliArguments disabled = CliArgumentsParser.parse(new String[]{"--failures-only=false", "--changed"});
+
+        assertTrue(enabled.failuresOnly());
+        assertFalse(disabled.failuresOnly());
+    }
+
+    @Test
+    void failuresOnlyFlagRejectsInvalidAssignments() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only=yes", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only=", "--changed"}));
+    }
+
+    @Test
+    void failuresOnlyFlagCanOnlyBeProvidedOnce() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only", "--failures-only=false"}));
     }
 
     @Test

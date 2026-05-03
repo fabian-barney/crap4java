@@ -9,6 +9,7 @@ record CliArguments(
         ReportFormat reportFormat,
         double threshold,
         boolean agent,
+        boolean failuresOnly,
         @Nullable String outputPath,
         @Nullable String junitReportPath,
         List<String> fileArgs
