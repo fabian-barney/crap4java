@@ -19,6 +19,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,6 +28,17 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class CrapJavaCheckTask extends DefaultTask {
+
+    public CrapJavaCheckTask() {
+        getThreshold().convention(Main.DEFAULT_THRESHOLD);
+        getAgent().convention(false);
+        getFormat().convention(getAgent().map(agent -> agent ? "toon" : "none"));
+        getFailuresOnly().convention(getAgent());
+        getOmitRedundancy().convention(getAgent());
+        getJunit().convention(true);
+        getJunitReport().convention(getProject().getLayout().getBuildDirectory()
+                .file("reports/crap-java/TEST-crap-java.xml"));
+    }
 
     @Internal
     public abstract DirectoryProperty getAnalysisRoot();
@@ -78,6 +90,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     @TaskAction
     void runCheck() throws Exception {
+        deleteDisabledJunitReport();
         List<Path> sourceFiles = getAnalysisSources().getFiles().stream()
                 .map(file -> file.toPath().toAbsolutePath().normalize())
                 .sorted()
@@ -134,6 +147,13 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return null;
         }
         return getJunitReport().get().getAsFile().toPath().toAbsolutePath().normalize();
+    }
+
+    private void deleteDisabledJunitReport() throws Exception {
+        if (getJunit().get() || !getJunitReport().isPresent()) {
+            return;
+        }
+        Files.deleteIfExists(getJunitReport().get().getAsFile().toPath().toAbsolutePath().normalize());
     }
 
     private List<Main.ResolvedCoverageModule> resolvedModules(List<Path> sourceFiles) {

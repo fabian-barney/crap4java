@@ -106,6 +106,25 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void directlyRegisteredCheckTaskHasReportControlDefaults() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        CrapJavaCheckTask checkTask = project.getTasks().register("custom-crap-java-check", CrapJavaCheckTask.class).get();
+
+        assertEquals(8.0, checkTask.getThreshold().get());
+        assertFalse(checkTask.getAgent().get());
+        assertEquals("none", checkTask.getFormat().get());
+        assertFalse(checkTask.getFailuresOnly().get());
+        assertFalse(checkTask.getOmitRedundancy().get());
+        assertFalse(checkTask.getOutput().isPresent());
+        assertTrue(checkTask.getJunit().get());
+        assertTrue(checkTask.getJunitReport().get().getAsFile().toPath().normalize().toString()
+                .replace('\\', '/')
+                .endsWith("build/reports/crap-java/TEST-crap-java.xml"));
+        assertTrue(checkTask.getJunitReportOutput().isPresent());
+    }
+
+    @Test
     void agentExtensionComposesPrimaryDefaultsWhenControlsAreUnset() {
         Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
 
@@ -119,6 +138,20 @@ class CrapJavaGradlePluginTest {
         assertEquals("toon", extension.getFormat().get());
         assertTrue(extension.getFailuresOnly().get());
         assertTrue(extension.getOmitRedundancy().get());
+        assertEquals("toon", checkTask.getFormat().get());
+        assertTrue(checkTask.getFailuresOnly().get());
+        assertTrue(checkTask.getOmitRedundancy().get());
+    }
+
+    @Test
+    void agentTaskComposesPrimaryDefaultsWhenControlsAreUnset() {
+        Project project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
+
+        project.getPluginManager().apply("java");
+        project.getPluginManager().apply(CrapJavaGradlePlugin.class);
+        CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
+        checkTask.getAgent().set(true);
+
         assertEquals("toon", checkTask.getFormat().get());
         assertTrue(checkTask.getFailuresOnly().get());
         assertTrue(checkTask.getOmitRedundancy().get());

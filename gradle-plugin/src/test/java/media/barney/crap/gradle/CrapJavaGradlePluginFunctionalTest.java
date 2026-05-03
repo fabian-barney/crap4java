@@ -222,6 +222,26 @@ class CrapJavaGradlePluginFunctionalTest {
         assertTrue(junitReport.contains("<property name=\"status\" value=\"passed\"/>"));
     }
 
+    @Test
+    void disabledJunitRemovesStaleSidecarAndDoesNotWriteNewSidecar() throws Exception {
+        Path defaultJunit = tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        Files.createDirectories(defaultJunit.getParent());
+        Files.writeString(defaultJunit, "<testsuites tests=\"99\"/>");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult result = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(defaultJunit));
+        assertFalse(result.getOutput().contains("<testsuites"));
+        assertFalse(result.getOutput().contains("CRAP Report"));
+    }
+
     private BuildResult runBuild(String... arguments) {
         List<String> gradleArguments = new ArrayList<>();
         gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));

@@ -3,6 +3,8 @@ package media.barney.crap.gradle;
 import media.barney.crap.core.Main;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
@@ -37,9 +39,9 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
                     task.getAnalysisRoot().set(project.getLayout().getProjectDirectory());
                     task.getThreshold().convention(extension.getThreshold());
                     task.getAgent().convention(extension.getAgent());
-                    task.getFormat().convention(extension.getFormat());
-                    task.getFailuresOnly().convention(extension.getFailuresOnly());
-                    task.getOmitRedundancy().convention(extension.getOmitRedundancy());
+                    task.getFormat().convention(taskFormatDefault(project, task, extension));
+                    task.getFailuresOnly().convention(taskPrimaryFlagDefault(project, task, extension, extension.getFailuresOnly()));
+                    task.getOmitRedundancy().convention(taskPrimaryFlagDefault(project, task, extension, extension.getOmitRedundancy()));
                     task.getOutput().convention(extension.getOutput());
                     task.getJunit().convention(extension.getJunit());
                     task.getJunitReport().convention(extension.getJunitReport());
@@ -94,6 +96,35 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
             return JACOCO_XML_RELATIVE_PATH;
         }
         return modulePath + "/" + JACOCO_XML_RELATIVE_PATH;
+    }
+
+    private static Provider<String> taskFormatDefault(Project project,
+                                                      CrapJavaCheckTask task,
+                                                      CrapJavaExtension extension) {
+        return project.getProviders().provider(() -> {
+            boolean extensionAgent = extension.getAgent().getOrElse(false);
+            boolean taskAgent = task.getAgent().getOrElse(extensionAgent);
+            String extensionFormat = extension.getFormat().getOrElse(extensionAgent ? "toon" : "none");
+            if (taskAgent && !extensionAgent && "none".equals(extensionFormat)) {
+                return "toon";
+            }
+            return extensionFormat;
+        });
+    }
+
+    private static Provider<Boolean> taskPrimaryFlagDefault(Project project,
+                                                           CrapJavaCheckTask task,
+                                                           CrapJavaExtension extension,
+                                                           Property<Boolean> extensionControl) {
+        return project.getProviders().provider(() -> {
+            boolean extensionAgent = extension.getAgent().getOrElse(false);
+            boolean extensionValue = extensionControl.getOrElse(extensionAgent);
+            boolean taskAgent = task.getAgent().getOrElse(extensionAgent);
+            if (taskAgent && !extensionAgent && !extensionValue) {
+                return true;
+            }
+            return extensionValue;
+        });
     }
 }
 
