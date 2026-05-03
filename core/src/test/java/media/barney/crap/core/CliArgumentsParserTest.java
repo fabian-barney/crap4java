@@ -121,9 +121,13 @@ class CliArgumentsParserTest {
     void failuresOnlyFlagAcceptsExplicitBooleanAssignments() {
         CliArguments enabled = CliArgumentsParser.parse(new String[]{"--failures-only=true", "--changed"});
         CliArguments disabled = CliArgumentsParser.parse(new String[]{"--failures-only=false", "--changed"});
+        CliArguments enabledUppercase = CliArgumentsParser.parse(new String[]{"--failures-only=TRUE", "--changed"});
+        CliArguments disabledUppercase = CliArgumentsParser.parse(new String[]{"--failures-only=FALSE", "--changed"});
 
         assertTrue(enabled.failuresOnly());
         assertFalse(disabled.failuresOnly());
+        assertTrue(enabledUppercase.failuresOnly());
+        assertFalse(disabledUppercase.failuresOnly());
     }
 
     @Test
