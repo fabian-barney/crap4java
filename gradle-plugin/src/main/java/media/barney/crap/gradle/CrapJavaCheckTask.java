@@ -22,6 +22,7 @@ import org.gradle.api.tasks.TaskAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -124,7 +125,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     @TaskAction
     void runCheck() throws Exception {
-        deleteDisabledJunitReport();
         List<Path> sourceFiles = getAnalysisSources().getFiles().stream()
                 .map(file -> file.toPath().toAbsolutePath().normalize())
                 .sorted()
@@ -384,8 +384,14 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private String contentHash(Path path) throws Exception {
-        byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path));
-        return HexFormat.of().formatHex(digest);
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (DigestInputStream input = new DigestInputStream(Files.newInputStream(path), digest)) {
+            byte[] buffer = new byte[8192];
+            while (input.read(buffer) != -1) {
+                // Read the full stream so DigestInputStream can update the digest.
+            }
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     private Path junitReportStatePath() {

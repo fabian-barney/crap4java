@@ -309,6 +309,27 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void invalidReportPathDoesNotDeleteRememberedJunitSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path junitReport = projectRoot.resolve("outside-junit.xml");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunitReport().fileValue(junitReport.toFile());
+        task.runCheck();
+        assertTrue(Files.exists(junitReport));
+
+        task.getJunit().set(false);
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.path").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+        assertTrue(Files.exists(junitReport));
+    }
+
+    @Test
     void runCheckRejectsOtherTaskInternalStatePath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
