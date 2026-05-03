@@ -199,15 +199,14 @@ final class ReportFormatter {
     private static JsonMethod jsonMethod(CrapReport.MethodReport method) {
         return new JsonMethod(
                 method.status().value(),
-                method.methodName(),
-                method.className(),
-                method.sourcePath(),
-                method.startLine(),
-                method.endLine(),
+                method.crapScore(),
                 method.complexity(),
                 method.coveragePercent(),
                 method.coverageKind(),
-                method.crapScore()
+                method.methodName(),
+                method.className(),
+                method.startLine(),
+                method.endLine()
         );
     }
 
@@ -353,15 +352,14 @@ final class ReportFormatter {
 
     private record JsonMethod(
             String status,
-            String methodName,
-            String className,
-            String sourcePath,
-            int startLine,
-            int endLine,
-            int complexity,
-            @Nullable Double coveragePercent,
-            String coverageKind,
-            @Nullable Double crapScore
+            @Nullable Double crap,
+            int cc,
+            @Nullable Double cov,
+            String covKind,
+            String method,
+            String src,
+            int lineStart,
+            int lineEnd
     ) {
     }
 

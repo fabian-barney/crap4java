@@ -95,7 +95,7 @@ class MainTest {
 
         assertEquals(0, exit);
         assertTrue(utf8(out).contains("status: passed"));
-        assertTrue(utf8(out).contains("coverageKind"));
+        assertTrue(utf8(out).contains("covKind"));
         assertTrue(utf8(out).contains("Sample"));
         assertTrue(utf8(out).contains("alpha"));
     }
@@ -222,7 +222,7 @@ class MainTest {
         assertEquals(0, exit);
         assertEquals("", utf8(out));
         assertEquals("", utf8(err));
-        assertTrue(Files.readString(jsonReport).contains("\"coverageKind\": \"instruction\""));
+        assertTrue(Files.readString(jsonReport).contains("\"covKind\": \"instruction\""));
         assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
     }
 
@@ -295,9 +295,9 @@ class MainTest {
         assertEquals("", utf8(out));
         assertTrue(primary.contains("\"status\": \"failed\""));
         assertTrue(primary.contains("\"threshold\": 8.0"));
-        assertTrue(primary.contains("\"methodName\": \"danger\""));
-        assertFalse(primary.contains("\"methodName\": \"safe\""));
-        assertFalse(primary.contains("\"methodName\": \"unknown\""));
+        assertTrue(primary.contains("\"method\": \"danger\""));
+        assertFalse(primary.contains("\"method\": \"safe\""));
+        assertFalse(primary.contains("\"method\": \"unknown\""));
         assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
         assertTrue(junit.contains("FAILED danger"));
         assertTrue(junit.contains("PASSED safe"));

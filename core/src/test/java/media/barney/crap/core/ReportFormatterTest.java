@@ -74,27 +74,25 @@ class ReportFormatterTest {
                   "methods": [
                     {
                       "status": "failed",
-                      "methodName": "danger",
-                      "className": "demo.Sample",
-                      "sourcePath": "src/main/java/demo/Sample.java",
-                      "startLine": 4,
-                      "endLine": 6,
-                      "complexity": 5,
-                      "coveragePercent": 10.0,
-                      "coverageKind": "instruction",
-                      "crapScore": 9.645
+                      "crap": 9.645,
+                      "cc": 5,
+                      "cov": 10.0,
+                      "covKind": "instruction",
+                      "method": "danger",
+                      "src": "demo.Sample",
+                      "lineStart": 4,
+                      "lineEnd": 6
                     },
                     {
                       "status": "skipped",
-                      "methodName": "unknown",
-                      "className": "demo.Sample",
-                      "sourcePath": "src/main/java/demo/Sample.java",
-                      "startLine": 20,
-                      "endLine": 22,
-                      "complexity": 2,
-                      "coveragePercent": null,
-                      "coverageKind": "N/A",
-                      "crapScore": null
+                      "crap": null,
+                      "cc": 2,
+                      "cov": null,
+                      "covKind": "N/A",
+                      "method": "unknown",
+                      "src": "demo.Sample",
+                      "lineStart": 20,
+                      "lineEnd": 22
                     }
                   ]
                 }
@@ -112,9 +110,9 @@ class ReportFormatterTest {
 
         assertTrue(report.contains("status: passed"));
         assertTrue(report.contains("threshold: 8"));
-        assertTrue(report.contains("methods[2]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,crapScore}:"));
-        assertTrue(report.contains("passed,foo,demo.Sample,src/main/java/demo/Sample.java,4,6,3,85,instruction,4.5"));
-        assertTrue(report.contains("skipped,bar,demo.Sample,src/main/java/demo/Sample.java,9,11,2,null,N/A,null"));
+        assertTrue(report.contains("methods[2]{status,crap,cc,cov,covKind,method,src,lineStart,lineEnd}:"));
+        assertTrue(report.contains("passed,4.5,3,85,instruction,foo,demo.Sample,4,6"));
+        assertTrue(report.contains("skipped,null,2,null,N/A,bar,demo.Sample,9,11"));
     }
 
     @Test
@@ -132,15 +130,14 @@ class ReportFormatterTest {
                   "methods": [
                     {
                       "status": "failed",
-                      "methodName": "danger",
-                      "className": "demo.Sample",
-                      "sourcePath": "src/main/java/demo/Sample.java",
-                      "startLine": 4,
-                      "endLine": 6,
-                      "complexity": 5,
-                      "coveragePercent": 10.0,
-                      "coverageKind": "instruction",
-                      "crapScore": 9.645
+                      "crap": 9.645,
+                      "cc": 5,
+                      "cov": 10.0,
+                      "covKind": "instruction",
+                      "method": "danger",
+                      "src": "demo.Sample",
+                      "lineStart": 4,
+                      "lineEnd": 6
                     }
                   ]
                 }
@@ -158,8 +155,8 @@ class ReportFormatterTest {
 
         assertTrue(report.contains("status: failed"));
         assertTrue(report.contains("threshold: 8"));
-        assertTrue(report.contains("methods[1]{status,methodName,className,sourcePath,startLine,endLine,complexity,coveragePercent,coverageKind,crapScore}:"));
-        assertTrue(report.contains("failed,danger,demo.Sample,src/main/java/demo/Sample.java,4,6,5,10,instruction,9.645"));
+        assertTrue(report.contains("methods[1]{status,crap,cc,cov,covKind,method,src,lineStart,lineEnd}:"));
+        assertTrue(report.contains("failed,9.645,5,10,instruction,danger,demo.Sample,4,6"));
     }
 
     @Test
@@ -243,7 +240,7 @@ class ReportFormatterTest {
 
         String json = ReportFormatter.format(report(metric), ReportFormat.JSON);
 
-        assertTrue(json.contains("\"methodName\": \"quote\\\"slash\\\\line\\nreturn\\rtab\\tcontrol\\u0001\""));
+        assertTrue(json.contains("\"method\": \"quote\\\"slash\\\\line\\nreturn\\rtab\\tcontrol\\u0001\""));
     }
 
     @Test
