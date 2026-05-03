@@ -207,9 +207,17 @@ class CliArgumentsParserTest {
     }
 
     @Test
+    void noneReportFormatIsParsed() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{"--format", "none", "--changed"});
+
+        assertEquals(ReportFormat.NONE, args.reportFormat());
+    }
+
+    @Test
     void reportFormatRequiresValue() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--format"}));
+        assertEquals("--format requires one of: toon, json, text, junit, none", error.getMessage());
     }
 
     @Test

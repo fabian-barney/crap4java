@@ -202,7 +202,7 @@ final class CliArgumentsParser {
             throw new IllegalArgumentException("--format can only be provided once");
         }
         if (index + 1 >= args.length) {
-            throw new IllegalArgumentException("--format requires one of: toon, json, text, junit");
+            throw new IllegalArgumentException("--format requires one of: toon, json, text, junit, none");
         }
         return ReportFormat.parse(args[index + 1]);
     }
