@@ -174,6 +174,31 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     @Test
+    void configuredReportControlsReuseConfigurationCache() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    agent.set(true)
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/report.json"))
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
+                }
+                """);
+
+        BuildResult first = runBuild("--configuration-cache", "crap-java-check");
+        BuildResult second = runBuild("--configuration-cache", "crap-java-check");
+
+        assertTrue(first.getOutput().contains("Configuration cache entry stored."));
+        assertTrue(second.getOutput().contains("Configuration cache entry reused."));
+        TaskOutcome outcome = second.task(":crap-java-check").getOutcome();
+        assertTrue(outcome == TaskOutcome.SUCCESS || outcome == TaskOutcome.UP_TO_DATE);
+        assertTrue(Files.exists(tempDir.resolve("build/reports/crap-java/report.json")));
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/custom-junit.xml")));
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+    }
+
+    @Test
     void configuredThresholdIsWrittenToJunitReport() throws Exception {
         writeSingleModuleProject("""
 
@@ -410,6 +435,27 @@ class CrapJavaGradlePluginFunctionalTest {
 
         assertEquals(TaskOutcome.SUCCESS, thirdResult.task(":crap-java-check").getOutcome());
         assertFalse(Files.exists(newOutput));
+    }
+
+    @Test
+    void primaryOutputCleanupRemovesLastWrittenExternalOutputAfterClean() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldOutput));
+        writeSingleModuleProject();
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldOutput));
     }
 
     private BuildResult runBuild(String... arguments) {

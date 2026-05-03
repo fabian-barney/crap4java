@@ -36,9 +36,11 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     private final RegularFile junitReportState;
     private final RegularFile outputState;
     private final Provider<String> absentString;
+    private final Provider<RegularFile> absentRegularFile;
 
     public CrapJavaCheckTask() {
         absentString = getProject().getProviders().provider(() -> (String) null);
+        absentRegularFile = getProject().getProviders().provider(() -> (RegularFile) null);
         defaultJunitReport = getProject().getProviders()
                 .provider(this::defaultJunitReportRelativePath)
                 .flatMap(path -> getProject().getLayout().getBuildDirectory().file(path));
@@ -110,7 +112,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     public Provider<RegularFile> getJunitReportOutput() {
         return getJunit().flatMap(enabled -> enabled
                 ? getJunitReport()
-                : getProject().getProviders().provider(() -> (RegularFile) null));
+                : absentRegularFile);
     }
 
     @OutputFile
