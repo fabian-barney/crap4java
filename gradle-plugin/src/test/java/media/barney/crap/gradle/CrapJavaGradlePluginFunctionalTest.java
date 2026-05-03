@@ -328,6 +328,72 @@ class CrapJavaGradlePluginFunctionalTest {
         assertFalse(secondResult.getOutput().contains("<testsuites"));
     }
 
+    @Test
+    void disabledJunitReportPathChangeInvalidatesCleanupTask() throws Exception {
+        Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/old-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.createDirectories(newJunit.getParent());
+        Files.writeString(newJunit, "<testsuites tests=\"99\"/>");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/new-junit.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(newJunit));
+    }
+
+    @Test
+    void primaryOutputCleanupFollowsConfiguredOutputPath() throws Exception {
+        Path oldOutput = tempDir.resolve("build/reports/crap-java/old-report.json");
+        Path newOutput = tempDir.resolve("build/reports/crap-java/new-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/old-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldOutput));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/new-report.json"))
+                }
+                """);
+        BuildResult secondResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldOutput));
+        assertTrue(Files.exists(newOutput));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                }
+                """);
+
+        BuildResult thirdResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, thirdResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(newOutput));
+    }
+
     private BuildResult runBuild(String... arguments) {
         List<String> gradleArguments = new ArrayList<>();
         gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));
