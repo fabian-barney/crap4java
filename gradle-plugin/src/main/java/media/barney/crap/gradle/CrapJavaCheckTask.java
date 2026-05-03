@@ -32,6 +32,7 @@ import java.util.Set;
 public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private final Provider<RegularFile> defaultJunitReport;
+    private final Provider<RegularFile> executionMarker;
     private final RegularFile junitReportState;
     private final RegularFile outputState;
     private final Provider<String> absentString;
@@ -41,6 +42,8 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         defaultJunitReport = getProject().getProviders()
                 .provider(this::defaultJunitReportRelativePath)
                 .flatMap(path -> getProject().getLayout().getBuildDirectory().file(path));
+        executionMarker = getProject().getLayout().getBuildDirectory()
+                .file("tmp/crap-java/" + getName() + "/execution.marker");
         junitReportState = getProject().getLayout().getProjectDirectory()
                 .file(".gradle/crap-java/" + getName() + "/junit-report.path");
         outputState = getProject().getLayout().getProjectDirectory()
@@ -110,6 +113,11 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 : getProject().getProviders().provider(() -> (RegularFile) null));
     }
 
+    @OutputFile
+    public Provider<RegularFile> getExecutionMarkerOutput() {
+        return executionMarker;
+    }
+
     @TaskAction
     void runCheck() throws Exception {
         deleteDisabledJunitReport();
@@ -139,6 +147,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 );
                 rememberOutputPath(configuredOutputPath);
                 rememberJunitReportPath(configuredJunitReportPath);
+                writeExecutionMarker();
             }
             return;
         }
@@ -162,7 +171,14 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             if (exit != 0) {
                 throw new GradleException("crap-java-check failed with exit " + exit);
             }
+            writeExecutionMarker();
         }
+    }
+
+    private void writeExecutionMarker() throws Exception {
+        Path markerPath = getExecutionMarkerOutput().get().getAsFile().toPath().toAbsolutePath().normalize();
+        Files.createDirectories(markerPath.getParent());
+        Files.writeString(markerPath, "ok\n");
     }
 
     private void deleteMovedOutput(Path currentPath) throws Exception {

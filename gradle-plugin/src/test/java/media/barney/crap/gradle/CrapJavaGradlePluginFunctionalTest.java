@@ -247,6 +247,24 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     @Test
+    void disabledJunitWithoutPrimaryOutputCanBeUpToDate() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult firstResult = runBuild("crap-java-check");
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertEquals(TaskOutcome.UP_TO_DATE, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+        assertFalse(secondResult.getOutput().contains("CRAP Report"));
+    }
+
+    @Test
     void disabledJunitRemovesLastWrittenNonDefaultSidecar() throws Exception {
         Path oldJunit = tempDir.resolve("build/reports/crap-java/old-junit.xml");
         Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
