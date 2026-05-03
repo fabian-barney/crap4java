@@ -2,6 +2,7 @@ package media.barney.crap.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 final class CliArgumentsParser {
@@ -17,6 +18,7 @@ final class CliArgumentsParser {
                     ReportFormat.TOON,
                     Thresholds.DEFAULT,
                     false,
+                    false,
                     null,
                     null,
                     List.of()
@@ -31,6 +33,7 @@ final class CliArgumentsParser {
                     state.reportFormat,
                     state.threshold,
                     state.agent,
+                    state.failuresOnly,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -46,6 +49,7 @@ final class CliArgumentsParser {
                     state.reportFormat,
                     state.threshold,
                     state.agent,
+                    state.failuresOnly,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -58,6 +62,7 @@ final class CliArgumentsParser {
                     state.reportFormat,
                     state.threshold,
                     state.agent,
+                    state.failuresOnly,
                     state.outputPath,
                     state.junitReportPath,
                     List.of()
@@ -69,6 +74,7 @@ final class CliArgumentsParser {
                 state.reportFormat,
                 state.threshold,
                 state.agent,
+                state.failuresOnly,
                 state.outputPath,
                 state.junitReportPath,
                 List.copyOf(values)
@@ -104,6 +110,11 @@ final class CliArgumentsParser {
         if ("--agent".equals(arg)) {
             state.agent = parseAgent(state.agentSeen);
             state.agentSeen = true;
+            return index;
+        }
+        if (isBooleanOption(arg, "--failures-only")) {
+            state.failuresOnly = parseBooleanOption(arg, "--failures-only", state.failuresOnlySeen);
+            state.failuresOnlySeen = true;
             return index;
         }
         return parseValuedOption(args, index, state, arg);
@@ -143,6 +154,27 @@ final class CliArgumentsParser {
             throw new IllegalArgumentException("--agent can only be provided once");
         }
         return true;
+    }
+
+    private static boolean isBooleanOption(String arg, String option) {
+        return arg.equals(option) || arg.startsWith(option + "=");
+    }
+
+    private static boolean parseBooleanOption(String arg, String option, boolean seen) {
+        if (seen) {
+            throw new IllegalArgumentException(option + " can only be provided once");
+        }
+        if (arg.equals(option)) {
+            return true;
+        }
+        String value = arg.substring(option.length() + 1).toLowerCase(Locale.ROOT);
+        if ("true".equals(value)) {
+            return true;
+        }
+        if ("false".equals(value)) {
+            return false;
+        }
+        throw new IllegalArgumentException(option + " requires true or false when assigned");
     }
 
     private static BuildToolSelection parseBuildTool(String[] args, int index, boolean buildToolSeen) {
@@ -201,12 +233,21 @@ final class CliArgumentsParser {
         }
     }
 
+    private static void ensureFailuresOnlyDoesNotConflictWithAgent(boolean agent,
+                                                                   boolean failuresOnly,
+                                                                   boolean failuresOnlySeen) {
+        if (agent && failuresOnlySeen && !failuresOnly) {
+            throw new IllegalArgumentException("--agent cannot be combined with --failures-only=false");
+        }
+    }
+
     private record ParseState(boolean help,
                               boolean changed,
                               BuildToolSelection buildToolSelection,
                               ReportFormat reportFormat,
                               double threshold,
                               boolean agent,
+                              boolean failuresOnly,
                               @Nullable String outputPath,
                               @Nullable String junitReportPath,
                               List<String> fileArgs) {
@@ -223,6 +264,8 @@ final class CliArgumentsParser {
         private boolean thresholdSeen;
         private boolean agent;
         private boolean agentSeen;
+        private boolean failuresOnly;
+        private boolean failuresOnlySeen;
         private @Nullable String outputPath;
         private boolean outputPathSeen;
         private @Nullable String junitReportPath;
@@ -231,7 +274,8 @@ final class CliArgumentsParser {
 
         private ParseState build() {
             ensureAgentFormatIsSupported(agent, reportFormat);
-            return new ParseState(help, changed, buildToolSelection, reportFormat, threshold, agent, outputPath, junitReportPath, values);
+            ensureFailuresOnlyDoesNotConflictWithAgent(agent, failuresOnly, failuresOnlySeen);
+            return new ParseState(help, changed, buildToolSelection, reportFormat, threshold, agent, failuresOnly, outputPath, junitReportPath, values);
         }
     }
 }

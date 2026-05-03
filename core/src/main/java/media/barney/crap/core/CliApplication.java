@@ -115,6 +115,7 @@ final class CliApplication {
         return new ReportOptions(
                 parsed.reportFormat(),
                 parsed.agent(),
+                parsed.failuresOnly(),
                 outputPath(parsed.outputPath()),
                 outputPath(parsed.junitReportPath())
         );

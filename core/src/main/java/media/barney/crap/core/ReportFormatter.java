@@ -38,7 +38,14 @@ final class ReportFormatter {
     }
 
     static String format(CrapReport report, ReportFormat format, boolean agent) {
-        return agent ? formatAgent(report, format) : formatFull(report, format);
+        return format(report, format, agent, false);
+    }
+
+    static String format(CrapReport report, ReportFormat format, boolean agent, boolean failuresOnly) {
+        if (agent) {
+            return formatAgent(report, format);
+        }
+        return formatFull(failuresOnly ? failuresOnly(report) : report, format);
     }
 
     private static String formatFull(CrapReport report, ReportFormat format) {
