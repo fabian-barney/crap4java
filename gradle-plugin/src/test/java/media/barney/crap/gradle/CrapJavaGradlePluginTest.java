@@ -1,5 +1,6 @@
 package media.barney.crap.gradle;
 
+import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.testfixtures.ProjectBuilder;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CrapJavaGradlePluginTest {
@@ -283,6 +285,41 @@ class CrapJavaGradlePluginTest {
         task.runCheck();
 
         assertEquals("unrelated", Files.readString(junitReport));
+    }
+
+    @Test
+    void disabledJunitKeepsRecreatedIdenticalRememberedExternalSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path junitReport = projectRoot.resolve("outside-junit.xml");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunitReport().fileValue(junitReport.toFile());
+        task.runCheck();
+        String originalReport = Files.readString(junitReport);
+        Files.delete(junitReport);
+        Thread.sleep(20);
+        Files.writeString(junitReport, originalReport);
+
+        task.getJunit().set(false);
+        task.runCheck();
+
+        assertEquals(originalReport, Files.readString(junitReport));
+    }
+
+    @Test
+    void runCheckRejectsOtherTaskInternalStatePath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.path").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
     }
 
     @Test

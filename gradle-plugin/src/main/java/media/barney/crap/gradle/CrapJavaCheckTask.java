@@ -21,6 +21,7 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,6 +29,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public abstract class CrapJavaCheckTask extends DefaultTask {
 
@@ -193,16 +195,32 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (reportPath == null) {
             return;
         }
-        for (Path internalPath : internalStatePaths()) {
-            if (reportPath.equals(internalPath)) {
-                throw new GradleException(propertyName + " must not point to a crap-java internal task file: "
-                        + reportPath);
-            }
+        if (isInternalTaskFile(reportPath)) {
+            throw new GradleException(propertyName + " must not point to a crap-java internal task file: "
+                    + reportPath);
         }
     }
 
-    private List<Path> internalStatePaths() {
-        return List.of(executionMarkerPath(), outputStatePath(), junitReportStatePath());
+    private boolean isInternalTaskFile(Path reportPath) {
+        return isExecutionMarkerPath(reportPath) || isRememberedPathStateFile(reportPath);
+    }
+
+    private boolean isExecutionMarkerPath(Path reportPath) {
+        return reportPath.startsWith(executionMarkerPath().getParent().getParent())
+                && "execution.marker".equals(reportPath.getFileName().toString());
+    }
+
+    private boolean isRememberedPathStateFile(Path reportPath) {
+        return reportPath.startsWith(rememberedStateRoot()) && hasRememberedStateFileName(reportPath);
+    }
+
+    private Path rememberedStateRoot() {
+        return outputStatePath().getParent().getParent();
+    }
+
+    private boolean hasRememberedStateFileName(Path reportPath) {
+        String fileName = reportPath.getFileName().toString();
+        return "primary-output.path".equals(fileName) || "junit-report.path".equals(fileName);
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
@@ -286,7 +304,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!Files.isRegularFile(rememberedReport.path())) {
             return false;
         }
-        return rememberedReport.fingerprint().equals(fileFingerprint(rememberedReport.path()));
+        return rememberedReport.fingerprint().equals(ownershipFingerprint(rememberedReport.path()));
     }
 
     private String defaultJunitReportRelativePath() {
@@ -324,7 +342,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private void rememberReportPath(Path statePath, Path reportPath) throws Exception {
         Files.createDirectories(statePath.getParent());
-        Files.writeString(statePath, reportPath + "\n" + fileFingerprint(reportPath) + "\n");
+        Files.writeString(statePath, reportPath + "\n" + ownershipFingerprint(reportPath) + "\n");
     }
 
     private RememberedReport rememberedJunitReportPath() throws Exception {
@@ -342,14 +360,30 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!hasRememberedReport(lines)) {
             return null;
         }
-        return new RememberedReport(Path.of(lines.get(0).trim()).toAbsolutePath().normalize(), lines.get(1).trim());
+        return new RememberedReport(Path.of(lines.get(0).trim()).toAbsolutePath().normalize(), lines.get(1));
     }
 
     private boolean hasRememberedReport(List<String> lines) {
         return lines.size() >= 2 && !lines.get(0).isBlank() && !lines.get(1).isBlank();
     }
 
-    private String fileFingerprint(Path path) throws Exception {
+    private String ownershipFingerprint(Path path) throws Exception {
+        BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class);
+        return fileKey(attributes) + "\t"
+                + attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS) + "\t"
+                + attributes.size() + "\t"
+                + contentHash(path);
+    }
+
+    private String fileKey(BasicFileAttributes attributes) {
+        Object fileKey = attributes.fileKey();
+        if (fileKey == null) {
+            return "";
+        }
+        return fileKey.toString().replace('\n', ' ').replace('\r', ' ').replace('\t', ' ');
+    }
+
+    private String contentHash(Path path) throws Exception {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path));
         return HexFormat.of().formatHex(digest);
     }

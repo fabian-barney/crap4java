@@ -533,7 +533,7 @@ class CrapJavaGradlePluginFunctionalTest {
         writeSingleModuleProject("""
 
                 crapJava {
-                    output.set(layout.buildDirectory.file("tmp/crap-java/crap-java-check/execution.marker"))
+                    output.set(layout.buildDirectory.file("tmp/crap-java/other-crap-java-check/execution.marker"))
                 }
                 """);
 
