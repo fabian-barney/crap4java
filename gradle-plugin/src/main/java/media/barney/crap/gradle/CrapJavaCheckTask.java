@@ -273,12 +273,20 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private void deleteRememberedReport(RememberedReport rememberedReport) throws Exception {
-        if (rememberedReport == null || !Files.isRegularFile(rememberedReport.path())) {
+        if (!isOwnedRememberedReport(rememberedReport)) {
             return;
         }
-        if (rememberedReport.fingerprint().equals(fileFingerprint(rememberedReport.path()))) {
-            Files.deleteIfExists(rememberedReport.path());
+        Files.deleteIfExists(rememberedReport.path());
+    }
+
+    private boolean isOwnedRememberedReport(RememberedReport rememberedReport) throws Exception {
+        if (rememberedReport == null) {
+            return false;
         }
+        if (!Files.isRegularFile(rememberedReport.path())) {
+            return false;
+        }
+        return rememberedReport.fingerprint().equals(fileFingerprint(rememberedReport.path()));
     }
 
     private String defaultJunitReportRelativePath() {
@@ -327,14 +335,18 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!Files.isRegularFile(statePath)) {
             return null;
         }
-        List<String> lines = Files.readAllLines(statePath);
-        if (lines.isEmpty() || lines.get(0).isBlank()) {
-            return null;
-        }
-        if (lines.size() < 2 || lines.get(1).isBlank()) {
+        return parseRememberedReport(Files.readAllLines(statePath));
+    }
+
+    private RememberedReport parseRememberedReport(List<String> lines) {
+        if (!hasRememberedReport(lines)) {
             return null;
         }
         return new RememberedReport(Path.of(lines.get(0).trim()).toAbsolutePath().normalize(), lines.get(1).trim());
+    }
+
+    private boolean hasRememberedReport(List<String> lines) {
+        return lines.size() >= 2 && !lines.get(0).isBlank() && !lines.get(1).isBlank();
     }
 
     private String fileFingerprint(Path path) throws Exception {

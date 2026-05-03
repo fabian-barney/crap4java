@@ -250,6 +250,42 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void disabledJunitDeletesOwnedRememberedExternalSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path junitReport = projectRoot.resolve("outside-junit.xml");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunitReport().fileValue(junitReport.toFile());
+        task.runCheck();
+        assertTrue(Files.exists(junitReport));
+
+        task.getJunit().set(false);
+        task.runCheck();
+
+        assertFalse(Files.exists(junitReport));
+    }
+
+    @Test
+    void disabledJunitKeepsRecreatedRememberedExternalSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path junitReport = projectRoot.resolve("outside-junit.xml");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunitReport().fileValue(junitReport.toFile());
+        task.runCheck();
+        Files.writeString(junitReport, "unrelated");
+
+        task.getJunit().set(false);
+        task.runCheck();
+
+        assertEquals("unrelated", Files.readString(junitReport));
+    }
+
+    @Test
     void disabledCustomTaskDoesNotDeleteBuiltInTaskSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
