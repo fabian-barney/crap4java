@@ -568,6 +568,54 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsDirectoryPrimaryReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path reportDirectory = tempDir.resolve("target/crap-java/report.json");
+        Files.createDirectories(reportDirectory);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                reportDirectory,
+                tempDir.resolve("target/crap-java/TEST-crap-java.xml"),
+                8.0
+        ));
+
+        assertEquals("output must not point to a directory", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsDirectoryJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path junitDirectory = tempDir.resolve("target/crap-java/TEST-crap-java.xml");
+        Files.createDirectories(junitDirectory);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                tempDir.resolve("target/crap-java/report.json"),
+                junitDirectory,
+                8.0
+        ));
+
+        assertEquals("junitReport must not point to a directory", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageRejectsAliasedPrimaryAndJunitReportPath() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
@@ -576,7 +624,7 @@ class MainTest {
         Path alias = tempDir.resolve("target/crap-java/report-alias.xml");
         Files.createDirectories(report.getParent());
         Files.writeString(report, "existing");
-        Files.createLink(alias, report);
+        createHardLinkOrSkip(alias, report);
 
         IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
                 List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
@@ -832,6 +880,15 @@ class MainTest {
             return Files.createSymbolicLink(link, target);
         } catch (UnsupportedOperationException | IOException | SecurityException exception) {
             assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
+    }
+
+    private Path createHardLinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Hard links are unavailable: " + exception.getMessage());
             return link;
         }
     }

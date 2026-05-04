@@ -37,8 +37,14 @@ record ReportOptions(
     }
 
     private static void validateReportPath(String name, @Nullable Path path) {
-        if (path != null && path.getFileName() == null) {
+        if (path == null) {
+            return;
+        }
+        if (path.getFileName() == null) {
             throw new IllegalArgumentException(name + " must not point to a filesystem root");
+        }
+        if (Files.isDirectory(path)) {
+            throw new IllegalArgumentException(name + " must not point to a directory");
         }
     }
 

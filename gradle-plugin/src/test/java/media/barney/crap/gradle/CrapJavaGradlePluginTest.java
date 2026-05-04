@@ -297,6 +297,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void movedJunitReportDeletesOwnedRememberedDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         Path customJunitReport = projectRoot.resolve("custom-junit.xml");
         CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
@@ -315,6 +316,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void disabledJunitDeletesOwnedRememberedDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
         firstTask.runCheck();
@@ -331,6 +333,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void disabledJunitDeletesOwnedRememberedExternalSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path junitReport = projectRoot.resolve("outside-junit.xml");
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
@@ -408,16 +411,18 @@ class CrapJavaGradlePluginTest {
     @Test
     void failedJunitPublishRemembersWrittenPrimaryOutput() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path output = projectRoot.resolve("primary.json");
-        Path junitDirectory = projectRoot.resolve("junit-directory");
-        Files.createDirectories(junitDirectory);
+        Path junitParentFile = projectRoot.resolve("junit-parent-file");
+        Path badJunitReport = junitParentFile.resolve("TEST-crap-java.xml");
+        Files.writeString(junitParentFile, "not a directory");
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         task.getFormat().set("json");
         task.getOutput().fileValue(output.toFile());
-        task.getJunitReport().fileValue(junitDirectory.toFile());
+        task.getJunitReport().fileValue(badJunitReport.toFile());
 
         assertThrows(Exception.class, task::runCheck);
 
@@ -508,15 +513,17 @@ class CrapJavaGradlePluginTest {
     @Test
     void failedMovedJunitReplacementDoesNotForgetRememberedOutput() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path oldOutput = projectRoot.resolve("outside-report.json");
         Path replacementOutput = projectRoot.resolve("replacement-report.json");
-        Path badJunitReport = projectRoot.resolve("bad-junit.xml");
+        Path junitParentFile = projectRoot.resolve("junit-parent-file");
+        Path badJunitReport = junitParentFile.resolve("TEST-crap-java.xml");
         CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
         firstTask.getFormat().set("json");
         firstTask.getOutput().fileValue(oldOutput.toFile());
         firstTask.runCheck();
         assertTrue(Files.exists(oldOutput));
-        Files.createDirectories(badJunitReport);
+        Files.writeString(junitParentFile, "not a directory");
 
         CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
         secondTask.getFormat().set("json");
@@ -540,6 +547,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void movedOutputDoesNotDeleteReportStillOwnedByAnotherTask() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path sharedOutput = projectRoot.resolve("shared-report.json");
         Path movedOutput = projectRoot.resolve("moved-report.json");
         CrapJavaCheckTask firstTask = newCheckTask(projectRoot, "first-crap-java-check");
@@ -791,6 +799,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void rememberedStateUsesGradleProjectCacheDir() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path projectCacheDir = projectRoot.resolve("custom-project-cache");
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         project.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
@@ -805,8 +814,20 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void reportStateLockIsSharedAcrossTasksInProjectCache() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot, "first-crap-java-check");
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot, "second-crap-java-check");
+        Path expectedLockPath = projectRoot.resolve(".gradle/crap-java/state.lock").toAbsolutePath().normalize();
+
+        assertEquals(expectedLockPath, stateLockPath(firstTask));
+        assertEquals(expectedLockPath, stateLockPath(secondTask));
+    }
+
+    @Test
     void rememberedStateFallsBackToRootProjectGradleDirForSubprojects() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path subprojectRoot = projectRoot.resolve("sub");
         Files.createDirectories(subprojectRoot);
         Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -828,6 +849,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void rememberedStateEscapesProjectPathSeparators() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Path projectCacheDir = projectRoot.resolve("custom-project-cache");
         Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         root.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
@@ -887,6 +909,7 @@ class CrapJavaGradlePluginTest {
     @Test
     void disabledCustomTaskOnlyDeletesOwnedDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
+        assumeHardLinksAvailable(projectRoot);
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path builtInJunit = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         Path customJunit = projectRoot.resolve("build/reports/crap-java/custom-crap-java-check/TEST-crap-java.xml");
@@ -956,8 +979,28 @@ class CrapJavaGradlePluginTest {
     private void rememberOwnedReport(Path statePath, Path reportPath) throws Exception {
         Files.createDirectories(statePath.getParent());
         Path ownerPath = statePath.resolveSibling("primary-output.owner");
-        Files.createLink(ownerPath, reportPath);
+        createHardLinkOrSkip(ownerPath, reportPath);
         Files.writeString(statePath, reportPath + "\n" + ownership(reportPath) + "\n");
+    }
+
+    private void assumeHardLinksAvailable(Path directory) throws Exception {
+        Path target = Files.createTempFile(directory, ".crap-java-hard-link-target-", ".tmp");
+        Path link = target.resolveSibling(target.getFileName() + ".link");
+        try {
+            createHardLinkOrSkip(link, target);
+        } finally {
+            Files.deleteIfExists(link);
+            Files.deleteIfExists(target);
+        }
+    }
+
+    private Path createHardLinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Hard links are unavailable: " + exception.getMessage());
+            return link;
+        }
     }
 
     private String ownership(Path reportPath) throws Exception {
@@ -979,6 +1022,12 @@ class CrapJavaGradlePluginTest {
         );
         cleanup.setAccessible(true);
         cleanup.invoke(task, currentOutputPath, currentJunitReportPath);
+    }
+
+    private Path stateLockPath(CrapJavaCheckTask task) throws Exception {
+        Method stateLockPath = CrapJavaCheckTask.class.getDeclaredMethod("stateLockPath");
+        stateLockPath.setAccessible(true);
+        return (Path) stateLockPath.invoke(task);
     }
 
     private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {

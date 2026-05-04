@@ -46,6 +46,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     private final Provider<RegularFile> executionMarker;
     private final RegularFileProperty junitReportState;
     private final RegularFileProperty outputState;
+    private final RegularFileProperty stateLock;
     private final Provider<String> absentString;
     private final Provider<RegularFile> absentRegularFile;
 
@@ -61,6 +62,8 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         junitReportState.fileValue(localStateFile("junit-report.path"));
         outputState = getProject().getObjects().fileProperty();
         outputState.fileValue(localStateFile("primary-output.path"));
+        stateLock = getProject().getObjects().fileProperty();
+        stateLock.fileValue(globalStateFile("state.lock"));
         getThreshold().convention(Main.DEFAULT_THRESHOLD);
         getAgent().convention(false);
         getFormat().convention(getAgent().map(agent -> agent ? "toon" : "none"));
@@ -246,6 +249,9 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (reportPath.getFileName() == null) {
             throw new GradleException(propertyName + " must not point to a filesystem root");
         }
+        if (Files.isDirectory(reportPath)) {
+            throw new GradleException(propertyName + " must not point to a directory");
+        }
         if (isInternalTaskFile(reportPath)) {
             throw new GradleException(propertyName + " must not point to a crap-java internal task file: "
                     + reportPath);
@@ -277,7 +283,11 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private List<Path> internalRememberedStateRoots() {
         return getProject().getRootProject().getAllprojects().stream()
-                .map(project -> projectCacheRoot(project).resolve("crap-java").resolve(projectStateName(project)))
+                .flatMap(project -> {
+                    Path stateRoot = projectCacheRoot(project).resolve("crap-java");
+                    return Stream.of(stateRoot, stateRoot.resolve(projectStateName(project)));
+                })
+                .distinct()
                 .toList();
     }
 
@@ -424,7 +434,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private Path stateLockPath() {
-        return outputStatePath().resolveSibling("state.lock");
+        return stateLock.get().getAsFile()
+                .toPath()
+                .toAbsolutePath()
+                .normalize();
     }
 
     private void writeExecutionMarker() throws Exception {
@@ -668,6 +681,13 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 .resolve("crap-java")
                 .resolve(projectStateName(getProject()))
                 .resolve(getName())
+                .resolve(fileName)
+                .toFile();
+    }
+
+    private File globalStateFile(String fileName) {
+        return projectCacheRoot(getProject())
+                .resolve("crap-java")
                 .resolve(fileName)
                 .toFile();
     }
