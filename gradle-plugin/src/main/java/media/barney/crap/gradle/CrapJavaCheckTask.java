@@ -141,30 +141,47 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         Path configuredOutputPath = outputPath();
         Path configuredJunitReportPath = junitReportPath();
         validateReportPaths(configuredOutputPath, configuredJunitReportPath);
-        if (sourceFiles.isEmpty()) {
-            try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
-                 var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-                int exit = Main.runWithExistingCoverage(
-                        List.of(),
-                        analysisRoot,
-                        out,
-                        err,
-                        getFormat().get(),
-                        getFailuresOnly().get(),
-                        getOmitRedundancy().get(),
-                        configuredOutputPath,
-                        configuredJunitReportPath,
-                        getThreshold().get()
-                );
-                updateReportState(configuredOutputPath, configuredJunitReportPath);
-                if (exit != 0) {
-                    throw new GradleException("crap-java-check failed with exit " + exit);
-                }
-                writeExecutionMarker();
-            }
-            return;
+        List<Main.ResolvedCoverageModule> modules = sourceFiles.isEmpty() ? List.of() : resolvedModules(sourceFiles);
+        int exit = runWithReportStateLock(
+                modules,
+                analysisRoot,
+                configuredOutputPath,
+                configuredJunitReportPath
+        );
+        if (exit != 0) {
+            throw new GradleException("crap-java-check failed with exit " + exit);
         }
-        List<Main.ResolvedCoverageModule> modules = resolvedModules(sourceFiles);
+        writeExecutionMarker();
+    }
+
+    private int runWithReportStateLock(
+            List<Main.ResolvedCoverageModule> modules,
+            Path analysisRoot,
+            Path configuredOutputPath,
+            Path configuredJunitReportPath
+    ) throws Exception {
+        Path lockPath = stateLockPath();
+        Files.createDirectories(lockPath.getParent());
+        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             FileLock ignored = channel.lock()) {
+            cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
+            return runAndRememberReports(
+                    modules,
+                    analysisRoot,
+                    configuredOutputPath,
+                    configuredJunitReportPath
+            );
+        }
+    }
+
+    private int runAndRememberReports(
+            List<Main.ResolvedCoverageModule> modules,
+            Path analysisRoot,
+            Path configuredOutputPath,
+            Path configuredJunitReportPath
+    ) throws Exception {
+        ReportSnapshot outputBefore = reportSnapshot(configuredOutputPath);
+        ReportSnapshot junitBefore = reportSnapshot(configuredJunitReportPath);
         try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
              var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
             int exit = Main.runWithExistingCoverage(
@@ -179,11 +196,16 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                     configuredJunitReportPath,
                     getThreshold().get()
             );
-            updateReportState(configuredOutputPath, configuredJunitReportPath);
-            if (exit != 0) {
-                throw new GradleException("crap-java-check failed with exit " + exit);
-            }
-            writeExecutionMarker();
+            rememberReportState(configuredOutputPath, configuredJunitReportPath);
+            return exit;
+        } catch (Exception exception) {
+            rememberChangedReportState(
+                    configuredOutputPath,
+                    configuredJunitReportPath,
+                    outputBefore,
+                    junitBefore
+            );
+            throw exception;
         }
     }
 
@@ -335,15 +357,39 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         deleteDisabledJunitReport(currentOutputPath);
     }
 
-    private void updateReportState(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
-        Path lockPath = stateLockPath();
-        Files.createDirectories(lockPath.getParent());
-        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-             FileLock ignored = channel.lock()) {
-            cleanupStaleReports(currentOutputPath, currentJunitReportPath);
+    private void rememberReportState(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
+        rememberOutputPath(currentOutputPath);
+        rememberJunitReportPath(currentJunitReportPath);
+    }
+
+    private void rememberChangedReportState(
+            Path currentOutputPath,
+            Path currentJunitReportPath,
+            ReportSnapshot outputBefore,
+            ReportSnapshot junitBefore
+    ) throws Exception {
+        if (reportChanged(currentOutputPath, outputBefore)) {
             rememberOutputPath(currentOutputPath);
+        }
+        if (reportChanged(currentJunitReportPath, junitBefore)) {
             rememberJunitReportPath(currentJunitReportPath);
         }
+    }
+
+    private boolean reportChanged(Path reportPath, ReportSnapshot before) throws IOException {
+        return reportPath != null && !reportSnapshot(reportPath).equals(before);
+    }
+
+    private ReportSnapshot reportSnapshot(Path reportPath) throws IOException {
+        if (reportPath == null || !Files.isRegularFile(reportPath)) {
+            return ReportSnapshot.missing();
+        }
+        BasicFileAttributes attributes = Files.readAttributes(reportPath, BasicFileAttributes.class);
+        return new ReportSnapshot(
+                true,
+                attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS),
+                attributes.size()
+        );
     }
 
     private Path stateLockPath() {
@@ -625,6 +671,13 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private record RememberedReport(Path path, String ownership, Path ownerLink) {
+    }
+
+    private record ReportSnapshot(boolean exists, long modifiedNanos, long size) {
+
+        private static ReportSnapshot missing() {
+            return new ReportSnapshot(false, 0, 0);
+        }
     }
 
     private List<Main.ResolvedCoverageModule> resolvedModules(List<Path> sourceFiles) {

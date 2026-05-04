@@ -372,6 +372,26 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void failedJunitPublishRemembersWrittenPrimaryOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path output = projectRoot.resolve("primary.json");
+        Path junitDirectory = projectRoot.resolve("junit-directory");
+        Files.createDirectories(junitDirectory);
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getFormat().set("json");
+        task.getOutput().fileValue(output.toFile());
+        task.getJunitReport().fileValue(junitDirectory.toFile());
+
+        assertThrows(Exception.class, task::runCheck);
+
+        assertTrue(Files.exists(output));
+        assertTrue(Files.exists(projectRoot.resolve(".gradle/crap-java/root/crap-java-check/primary-output.path")));
+    }
+
+    @Test
     void invalidReportPathDoesNotDeleteRememberedJunitSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
