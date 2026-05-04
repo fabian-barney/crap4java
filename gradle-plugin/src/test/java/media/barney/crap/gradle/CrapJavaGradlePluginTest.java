@@ -595,6 +595,22 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsDanglingSymlinkedPrimaryAndJunitReportPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path report = projectRoot.resolve("reports/collision.xml");
+        Files.createDirectories(report.getParent());
+        Path outputLink = createFileSymlinkOrSkip(projectRoot.resolve("output-report.xml"), report);
+        Path junitLink = createFileSymlinkOrSkip(projectRoot.resolve("junit-report.xml"), report);
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+        task.getOutput().fileValue(outputLink.toFile());
+        task.getJunitReport().fileValue(junitLink.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output and junitReport must not point to the same file"));
+    }
+
+    @Test
     void runCheckRejectsOtherTaskInternalStatePath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -749,6 +765,20 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsDanglingFileSymlinkAliasToInternalStatePath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.path");
+        Files.createDirectories(statePath.getParent());
+        Path stateAlias = createFileSymlinkOrSkip(projectRoot.resolve("state-report.xml"), statePath);
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+        task.getOutput().fileValue(stateAlias.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
     void runCheckRejectsFileSymlinkAliasToInternalExecutionMarkerPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/execution.marker");
@@ -759,6 +789,20 @@ class CrapJavaGradlePluginTest {
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(markerAlias.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsDanglingFileSymlinkAliasToInternalExecutionMarkerPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/execution.marker");
+        Files.createDirectories(markerPath.getParent());
+        Path markerAlias = createFileSymlinkOrSkip(projectRoot.resolve("marker-report.xml"), markerPath);
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
         task.getOutput().fileValue(markerAlias.toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);

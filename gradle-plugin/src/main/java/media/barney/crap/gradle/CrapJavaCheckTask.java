@@ -362,8 +362,18 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private Path realPathForComparison(Path path) {
+        return realPathForComparison(path, 0);
+    }
+
+    private Path realPathForComparison(Path path, int symlinkDepth) {
+        if (symlinkDepth > 8) {
+            return null;
+        }
         Path normalized = path.toAbsolutePath().normalize();
         try {
+            if (Files.isSymbolicLink(normalized)) {
+                return symbolicLinkTargetForComparison(normalized, symlinkDepth);
+            }
             if (Files.exists(normalized)) {
                 return normalized.toRealPath();
             }
@@ -375,6 +385,12 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return null;
         }
         return null;
+    }
+
+    private Path symbolicLinkTargetForComparison(Path link, int symlinkDepth) throws IOException {
+        Path target = Files.readSymbolicLink(link);
+        Path resolved = link.resolveSibling(target);
+        return realPathForComparison(resolved, symlinkDepth + 1);
     }
 
     private Path nearestExistingPath(Path path) {

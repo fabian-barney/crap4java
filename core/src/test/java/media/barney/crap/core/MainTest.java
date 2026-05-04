@@ -643,6 +643,32 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsDanglingSymlinkedPrimaryAndJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+        Files.createDirectories(report.getParent());
+        Path outputLink = createFileSymlinkOrSkip(tempDir.resolve("output-report.xml"), report);
+        Path junitLink = createFileSymlinkOrSkip(tempDir.resolve("junit-report.xml"), report);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                outputLink,
+                junitLink,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageRejectsSymlinkedParentBeforeLeafExists() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
@@ -880,6 +906,15 @@ class MainTest {
             return Files.createSymbolicLink(link, target);
         } catch (UnsupportedOperationException | IOException | SecurityException exception) {
             assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
+    }
+
+    private Path createFileSymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "File symbolic links are unavailable: " + exception.getMessage());
             return link;
         }
     }

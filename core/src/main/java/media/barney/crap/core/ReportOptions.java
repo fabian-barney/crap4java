@@ -93,8 +93,18 @@ record ReportOptions(
     }
 
     private static @Nullable Path realPathForComparison(Path path) {
+        return realPathForComparison(path, 0);
+    }
+
+    private static @Nullable Path realPathForComparison(Path path, int symlinkDepth) {
+        if (symlinkDepth > 8) {
+            return null;
+        }
         Path normalized = path.toAbsolutePath().normalize();
         try {
+            if (Files.isSymbolicLink(normalized)) {
+                return symbolicLinkTargetForComparison(normalized, symlinkDepth);
+            }
             if (Files.exists(normalized)) {
                 return normalized.toRealPath();
             }
@@ -106,6 +116,12 @@ record ReportOptions(
             return null;
         }
         return null;
+    }
+
+    private static @Nullable Path symbolicLinkTargetForComparison(Path link, int symlinkDepth) throws IOException {
+        Path target = Files.readSymbolicLink(link);
+        Path resolved = link.resolveSibling(target);
+        return realPathForComparison(resolved, symlinkDepth + 1);
     }
 
     private static @Nullable Path nearestExistingPath(Path path) {
