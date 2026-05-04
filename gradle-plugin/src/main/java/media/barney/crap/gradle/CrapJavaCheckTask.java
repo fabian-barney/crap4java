@@ -202,29 +202,32 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         ReportSnapshot junitBefore = reportSnapshot(configuredJunitReportPath);
         try (var out = GradleLoggingPrintStreams.standardOut(getLogger());
              var err = GradleLoggingPrintStreams.standardErr(getLogger())) {
-            int exit = Main.runWithExistingCoverage(
-                    modules,
-                    analysisRoot,
-                    out,
-                    err,
-                    getFormat().get(),
-                    getFailuresOnly().get(),
-                    getOmitRedundancy().get(),
-                    configuredOutputPath,
-                    configuredJunitReportPath,
-                    getThreshold().get()
-            );
+            int exit;
+            try {
+                exit = Main.runWithExistingCoverage(
+                        modules,
+                        analysisRoot,
+                        out,
+                        err,
+                        getFormat().get(),
+                        getFailuresOnly().get(),
+                        getOmitRedundancy().get(),
+                        configuredOutputPath,
+                        configuredJunitReportPath,
+                        getThreshold().get()
+                );
+            } catch (Exception exception) {
+                rememberChangedReportState(
+                        configuredOutputPath,
+                        configuredJunitReportPath,
+                        outputBefore,
+                        junitBefore
+                );
+                throw exception;
+            }
             cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
             rememberReportState(configuredOutputPath, configuredJunitReportPath);
             return exit;
-        } catch (Exception exception) {
-            rememberChangedReportState(
-                    configuredOutputPath,
-                    configuredJunitReportPath,
-                    outputBefore,
-                    junitBefore
-            );
-            throw exception;
         }
     }
 
@@ -649,10 +652,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         return "reports/crap-java/" + getName() + "/TEST-crap-java.xml";
     }
 
-    private Path defaultJunitReportPath() {
-        return defaultJunitReport.get().getAsFile().toPath().toAbsolutePath().normalize();
-    }
-
     private void rememberOutputPath(Path path) throws Exception {
         if (path == null) {
             Files.deleteIfExists(outputStatePath());
@@ -756,16 +755,20 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private Path parseRememberedReportPath(String line) {
-        if (line.startsWith(ENCODED_PATH_PREFIX)) {
-            return decodeRememberedReportPath(line.substring(ENCODED_PATH_PREFIX.length()));
+        try {
+            String path = line.startsWith(ENCODED_PATH_PREFIX)
+                    ? decodeRememberedReportPath(line.substring(ENCODED_PATH_PREFIX.length()))
+                    : line;
+            return path == null ? null : Path.of(path).toAbsolutePath().normalize();
+        } catch (IllegalArgumentException | SecurityException exception) {
+            return null;
         }
-        return Path.of(line).toAbsolutePath().normalize();
     }
 
-    private Path decodeRememberedReportPath(String encoded) {
+    private String decodeRememberedReportPath(String encoded) {
         try {
             byte[] decoded = Base64.getDecoder().decode(encoded);
-            return Path.of(new String(decoded, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
+            return new String(decoded, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException exception) {
             return null;
         }

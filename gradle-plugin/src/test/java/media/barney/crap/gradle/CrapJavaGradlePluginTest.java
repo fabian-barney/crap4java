@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -977,6 +978,17 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void rememberedStateIgnoresMalformedStoredPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/crap-java-check/primary-output.path");
+        Files.createDirectories(statePath.getParent());
+        Files.writeString(statePath, "\u0000\nlink\t1\t2\n");
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+
+        assertNull(rememberedReport(task, statePath));
+    }
+
+    @Test
     void disabledCustomTaskDoesNotDeleteUnownedDefaultSidecars() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -1132,13 +1144,17 @@ class CrapJavaGradlePluginTest {
     }
 
     private Path rememberedReportPath(CrapJavaCheckTask task, Path statePath) throws Exception {
-        Method rememberedReportPath = CrapJavaCheckTask.class.getDeclaredMethod("rememberedReportPath", Path.class);
-        rememberedReportPath.setAccessible(true);
-        Object rememberedReport = rememberedReportPath.invoke(task, statePath);
+        Object rememberedReport = rememberedReport(task, statePath);
         assertNotNull(rememberedReport);
         Method path = rememberedReport.getClass().getDeclaredMethod("path");
         path.setAccessible(true);
         return (Path) path.invoke(rememberedReport);
+    }
+
+    private Object rememberedReport(CrapJavaCheckTask task, Path statePath) throws Exception {
+        Method rememberedReportPath = CrapJavaCheckTask.class.getDeclaredMethod("rememberedReportPath", Path.class);
+        rememberedReportPath.setAccessible(true);
+        return rememberedReportPath.invoke(task, statePath);
     }
 
     private boolean isWindows() {
