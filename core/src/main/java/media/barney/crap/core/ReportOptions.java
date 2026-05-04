@@ -18,6 +18,8 @@ record ReportOptions(
     ReportOptions {
         outputPath = normalize(outputPath);
         junitReportPath = normalize(junitReportPath);
+        validateReportPath("output", outputPath);
+        validateReportPath("junitReport", junitReportPath);
         if (outputPath != null && junitReportPath != null && sameReportTarget(outputPath, junitReportPath)) {
             throw new IllegalArgumentException("output and junitReport must not point to the same file");
         }
@@ -32,6 +34,12 @@ record ReportOptions(
             return null;
         }
         return path.toAbsolutePath().normalize();
+    }
+
+    private static void validateReportPath(String name, @Nullable Path path) {
+        if (path != null && path.getFileName() == null) {
+            throw new IllegalArgumentException(name + " must not point to a filesystem root");
+        }
     }
 
     private static boolean sameReportTarget(Path first, Path second) {

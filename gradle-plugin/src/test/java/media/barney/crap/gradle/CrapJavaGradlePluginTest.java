@@ -8,12 +8,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -350,6 +353,25 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void movedOutputDoesNotDeleteCurrentJunitReportAtPreviousOutputPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path sharedReport = projectRoot.resolve("shared-report.xml");
+        Files.writeString(sharedReport, "<testsuites tests=\"0\"/>");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        rememberOwnedReport(
+                projectRoot.resolve(".gradle/crap-java/root/crap-java-check/primary-output.path"),
+                sharedReport
+        );
+
+        invokeCleanupStaleReports(task, null, sharedReport);
+
+        assertTrue(Files.exists(sharedReport));
+    }
+
+    @Test
     void invalidReportPathDoesNotDeleteRememberedJunitSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -424,6 +446,22 @@ class CrapJavaGradlePluginTest {
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
         assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsRootReportPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path root = projectRoot.getRoot();
+        assumeTrue(root != null, "Filesystem root is unavailable");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(root.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a filesystem root"));
     }
 
     @Test
@@ -681,6 +719,34 @@ class CrapJavaGradlePluginTest {
             assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
             return link;
         }
+    }
+
+    private void rememberOwnedReport(Path statePath, Path reportPath) throws Exception {
+        Files.createDirectories(statePath.getParent());
+        Path ownerPath = statePath.resolveSibling("primary-output.owner");
+        Files.createLink(ownerPath, reportPath);
+        Files.writeString(statePath, reportPath + "\n" + ownership(reportPath) + "\n");
+    }
+
+    private String ownership(Path reportPath) throws Exception {
+        BasicFileAttributes attributes = Files.readAttributes(reportPath, BasicFileAttributes.class);
+        return "link\t"
+                + attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS) + "\t"
+                + attributes.size();
+    }
+
+    private void invokeCleanupStaleReports(
+            CrapJavaCheckTask task,
+            Path currentOutputPath,
+            Path currentJunitReportPath
+    ) throws Exception {
+        Method cleanup = CrapJavaCheckTask.class.getDeclaredMethod(
+                "cleanupStaleReports",
+                Path.class,
+                Path.class
+        );
+        cleanup.setAccessible(true);
+        cleanup.invoke(task, currentOutputPath, currentJunitReportPath);
     }
 
     private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {

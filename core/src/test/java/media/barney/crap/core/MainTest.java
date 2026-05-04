@@ -544,6 +544,30 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsRootPrimaryReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path root = tempDir.toAbsolutePath().getRoot();
+        assumeTrue(root != null, "Filesystem root is unavailable");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                root,
+                tempDir.resolve("target/crap-java/TEST-crap-java.xml"),
+                8.0
+        ));
+
+        assertEquals("output must not point to a filesystem root", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageRejectsAliasedPrimaryAndJunitReportPath() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
