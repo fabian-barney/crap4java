@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 public final class Main {
 
@@ -57,7 +58,34 @@ public final class Main {
                 reportRoot.toAbsolutePath().normalize(),
                 out,
                 err,
-                ReportOptions.textWithOptionalJunit(junitReportPath.toAbsolutePath().normalize()),
+                ReportOptions.textWithOptionalJunit(junitReportPath),
+                threshold
+        );
+    }
+
+    public static int runWithExistingCoverage(List<ResolvedCoverageModule> modules,
+                                              Path reportRoot,
+                                              PrintStream out,
+                                              PrintStream err,
+                                              String reportFormat,
+                                              boolean failuresOnly,
+                                              boolean omitRedundancy,
+                                              @Nullable Path outputPath,
+                                              @Nullable Path junitReportPath,
+                                              double threshold) throws Exception {
+        Path normalizedReportRoot = reportRoot.toAbsolutePath().normalize();
+        return runResolvedModules(
+                modules,
+                normalizedReportRoot,
+                out,
+                err,
+                reportOptionsRelativeToRoot(
+                        normalizedReportRoot,
+                        reportFormat,
+                        failuresOnly,
+                        omitRedundancy,
+                        outputPath,
+                        junitReportPath),
                 threshold
         );
     }
@@ -137,6 +165,29 @@ public final class Main {
         if (!warning.isEmpty()) {
             err.println(warning);
         }
+    }
+
+    private static @Nullable Path normalize(Path root, @Nullable Path path) {
+        if (path == null) {
+            return null;
+        }
+        Path normalized = path.normalize();
+        return normalized.isAbsolute() ? normalized : root.resolve(normalized).normalize();
+    }
+
+    private static ReportOptions reportOptionsRelativeToRoot(Path root,
+                                                             String reportFormat,
+                                                             boolean failuresOnly,
+                                                             boolean omitRedundancy,
+                                                             @Nullable Path outputPath,
+                                                             @Nullable Path junitReportPath) {
+        return new ReportOptions(
+                ReportFormat.parse(reportFormat),
+                failuresOnly,
+                omitRedundancy,
+                normalize(root, outputPath),
+                normalize(root, junitReportPath)
+        );
     }
 
     private static Path commonRoot(List<ResolvedCoverageModule> modules) {

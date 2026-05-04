@@ -11,9 +11,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CrapJavaGradlePluginFunctionalTest {
@@ -30,6 +32,11 @@ class CrapJavaGradlePluginFunctionalTest {
         assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
         assertEquals(TaskOutcome.SUCCESS, result.task(":jacocoTestReport").getOutcome());
         assertTrue(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+        assertEquals(List.of("TEST-crap-java.xml"), reportFileNames("build/reports/crap-java"));
+        assertFalse(result.getOutput().contains("CRAP Report"));
+        assertFalse(result.getOutput().contains("\"status\""));
+        assertFalse(result.getOutput().contains("status:"));
+        assertFalse(result.getOutput().contains("<testsuites"));
     }
 
     @Test
@@ -167,6 +174,31 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     @Test
+    void configuredReportControlsReuseConfigurationCache() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    agent.set(true)
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/report.json"))
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
+                }
+                """);
+
+        BuildResult first = runBuild("--configuration-cache", "crap-java-check");
+        BuildResult second = runBuild("--configuration-cache", "crap-java-check");
+
+        assertTrue(first.getOutput().contains("Configuration cache entry stored."));
+        assertTrue(second.getOutput().contains("Configuration cache entry reused."));
+        TaskOutcome outcome = second.task(":crap-java-check").getOutcome();
+        assertTrue(outcome == TaskOutcome.SUCCESS || outcome == TaskOutcome.UP_TO_DATE);
+        assertTrue(Files.exists(tempDir.resolve("build/reports/crap-java/report.json")));
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/custom-junit.xml")));
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+    }
+
+    @Test
     void configuredThresholdIsWrittenToJunitReport() throws Exception {
         writeSingleModuleProject("""
 
@@ -182,7 +214,343 @@ class CrapJavaGradlePluginFunctionalTest {
                 .contains("<property name=\"threshold\" value=\"6.0\"/>"));
     }
 
+    @Test
+    void configuredReportControlsWritePrimaryReportAndFullJunitSidecar() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    agent.set(true)
+                    failuresOnly.set(false)
+                    omitRedundancy.set(true)
+                    output.set(layout.buildDirectory.file("reports/crap-java/report.json"))
+                    junit.set(true)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
+                }
+                """);
+
+        BuildResult result = runBuild("crap-java-check");
+
+        Path primary = tempDir.resolve("build/reports/crap-java/report.json");
+        Path junit = tempDir.resolve("build/reports/crap-java/custom-junit.xml");
+        String primaryReport = Files.readString(primary);
+        String junitReport = Files.readString(junit);
+        assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(primary));
+        assertTrue(Files.exists(junit));
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+        assertTrue(primaryReport.contains("\"status\": \"passed\""));
+        assertTrue(primaryReport.contains("\"threshold\": 8.0"));
+        assertTrue(primaryReport.contains("\"method\": \"alpha\""));
+        assertFalse(primaryReport.contains("      \"status\":"));
+        assertTrue(junitReport.contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(junitReport.contains("<property name=\"status\" value=\"passed\"/>"));
+    }
+
+    @Test
+    void disabledJunitRemovesStaleSidecarAndDoesNotWriteNewSidecar() throws Exception {
+        Path defaultJunit = tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        writeSingleModuleProject();
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(defaultJunit));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult result = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(defaultJunit));
+        assertFalse(result.getOutput().contains("<testsuites"));
+        assertFalse(result.getOutput().contains("CRAP Report"));
+    }
+
+    @Test
+    void disabledJunitWithoutPrimaryOutputCanBeUpToDate() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult firstResult = runBuild("crap-java-check");
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertEquals(TaskOutcome.UP_TO_DATE, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml")));
+        assertFalse(secondResult.getOutput().contains("CRAP Report"));
+    }
+
+    @Test
+    void disabledJunitRemovesLastWrittenNonDefaultSidecar() throws Exception {
+        Path oldJunit = tempDir.resolve("build/reports/crap-java/old-junit.xml");
+        Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/old-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldJunit));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/new-junit.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldJunit));
+        assertFalse(Files.exists(newJunit));
+        assertFalse(secondResult.getOutput().contains("<testsuites"));
+    }
+
+    @Test
+    void enabledJunitRemovesPreviousSidecarWhenReportPathChanges() throws Exception {
+        Path oldJunit = tempDir.resolve("build/reports/crap-java/old-junit.xml");
+        Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/old-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldJunit));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/new-junit.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldJunit));
+        assertTrue(Files.exists(newJunit));
+    }
+
+    @Test
+    void disabledJunitRemovesLastWrittenSidecarAfterClean() throws Exception {
+        Path oldJunit = tempDir.resolve("outside-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.projectDirectory.file("outside-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldJunit));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldJunit));
+        assertFalse(secondResult.getOutput().contains("<testsuites"));
+    }
+
+    @Test
+    void disabledJunitReportPathChangeInvalidatesTaskWithoutDeletingUnownedFile() throws Exception {
+        Path newJunit = tempDir.resolve("build/reports/crap-java/new-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/old-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.createDirectories(newJunit.getParent());
+        Files.writeString(newJunit, "<testsuites tests=\"99\"/>");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/new-junit.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(newJunit));
+    }
+
+    @Test
+    void primaryOutputCleanupFollowsConfiguredOutputPath() throws Exception {
+        Path oldOutput = tempDir.resolve("build/reports/crap-java/old-report.json");
+        Path newOutput = tempDir.resolve("build/reports/crap-java/new-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/old-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldOutput));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.buildDirectory.file("reports/crap-java/new-report.json"))
+                }
+                """);
+        BuildResult secondResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldOutput));
+        assertTrue(Files.exists(newOutput));
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                }
+                """);
+
+        BuildResult thirdResult = runBuild("crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, thirdResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(newOutput));
+    }
+
+    @Test
+    void primaryOutputCleanupRemovesLastWrittenExternalOutputAfterClean() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(oldOutput));
+        writeSingleModuleProject();
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertFalse(Files.exists(oldOutput));
+    }
+
+    @Test
+    void primaryOutputCleanupDoesNotDeleteRecreatedExternalOutputAfterClean() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.writeString(oldOutput, "unrelated");
+        writeSingleModuleProject();
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertEquals("unrelated", Files.readString(oldOutput));
+    }
+
+    @Test
+    void disabledJunitDoesNotDeleteRecreatedExternalSidecarAfterClean() throws Exception {
+        Path oldJunit = tempDir.resolve("outside-junit.xml");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junitReport.set(layout.projectDirectory.file("outside-junit.xml"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        Files.writeString(oldJunit, "unrelated");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    junit.set(false)
+                }
+                """);
+
+        BuildResult secondResult = runBuild("clean", "crap-java-check");
+
+        assertEquals(TaskOutcome.SUCCESS, secondResult.task(":crap-java-check").getOutcome());
+        assertEquals("unrelated", Files.readString(oldJunit));
+    }
+
+    @Test
+    void invalidReportPathDoesNotDeletePreviousOutput() throws Exception {
+        Path oldOutput = tempDir.resolve("outside-report.json");
+        writeSingleModuleProject("""
+
+                crapJava {
+                    format.set("json")
+                    output.set(layout.projectDirectory.file("outside-report.json"))
+                }
+                """);
+        BuildResult firstResult = runBuild("crap-java-check");
+        assertEquals(TaskOutcome.SUCCESS, firstResult.task(":crap-java-check").getOutcome());
+        writeSingleModuleProject("""
+
+                crapJava {
+                    output.set(layout.buildDirectory.file("reports/crap-java/collision.xml"))
+                    junitReport.set(layout.buildDirectory.file("reports/crap-java/collision.xml"))
+                }
+                """);
+
+        BuildResult secondResult = runBuildAndFail("crap-java-check");
+
+        assertTrue(secondResult.getOutput().contains("output and junitReport must not point to the same file"));
+        assertTrue(Files.exists(oldOutput));
+    }
+
+    @Test
+    void reportPathsMustNotUseInternalTaskFiles() throws Exception {
+        writeSingleModuleProject("""
+
+                crapJava {
+                    output.set(layout.buildDirectory.file("tmp/crap-java/crap-java-check/execution.marker"))
+                }
+                """);
+
+        BuildResult result = runBuildAndFail("crap-java-check");
+
+        assertTrue(result.getOutput().contains("output must not point to a crap-java internal task file"));
+    }
+
     private BuildResult runBuild(String... arguments) {
+        return gradleRunner(arguments).build();
+    }
+
+    private BuildResult runBuildAndFail(String... arguments) {
+        return gradleRunner(arguments).buildAndFail();
+    }
+
+    private GradleRunner gradleRunner(String... arguments) {
         List<String> gradleArguments = new ArrayList<>();
         gradleArguments.add("-Dgradle.user.home=" + tempDir.resolve("gradle-user-home"));
         gradleArguments.add("-Dorg.gradle.daemon=false");
@@ -190,8 +558,7 @@ class CrapJavaGradlePluginFunctionalTest {
         return GradleRunner.create()
                 .withProjectDir(tempDir.toFile())
                 .withArguments(gradleArguments)
-                .withPluginClasspath()
-                .build();
+                .withPluginClasspath();
     }
 
     private void writeSingleModuleProject() throws IOException {
@@ -251,6 +618,15 @@ class CrapJavaGradlePluginFunctionalTest {
         Path file = tempDir.resolve(relativePath);
         Files.createDirectories(file.getParent());
         Files.writeString(file, content);
+    }
+
+    private List<String> reportFileNames(String relativePath) throws IOException {
+        try (var files = Files.list(tempDir.resolve(relativePath))) {
+            return files
+                    .map(path -> path.getFileName().toString())
+                    .sorted(Comparator.naturalOrder())
+                    .toList();
+        }
     }
 }
 

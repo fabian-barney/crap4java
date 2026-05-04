@@ -1,18 +1,24 @@
 package media.barney.crap.core;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MainTest {
 
@@ -426,6 +432,299 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoveragePreResolvedModulesHonorsPrimaryReportControls() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path jsonReport = tempDir.resolve("target/crap-java/gradle.json");
+        Path junitReport = tempDir.resolve("target/crap-java/TEST-crap-java.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                "json",
+                true,
+                true,
+                jsonReport,
+                junitReport,
+                8.0
+        );
+
+        String primary = Files.readString(jsonReport);
+        String junit = Files.readString(junitReport);
+        assertEquals(2, exit);
+        assertEquals("", utf8(out));
+        assertTrue(primary.contains("\"status\": \"failed\""));
+        assertFalse(primary.contains("      \"status\":"));
+        assertTrue(primary.contains("\"method\": \"danger\""));
+        assertFalse(primary.contains("\"method\": \"safe\""));
+        assertFalse(primary.contains("\"method\": \"unknown\""));
+        assertTrue(junit.contains("FAILED danger"));
+        assertTrue(junit.contains("PASSED safe"));
+        assertTrue(junit.contains("SKIPPED unknown"));
+    }
+
+    @Test
+    void runWithExistingCoveragePreResolvedModulesResolvesRelativeReportPathsAgainstReportRoot() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path jsonReport = Path.of("target/crap-java/relative.json");
+        Path junitReport = Path.of("target/crap-java/TEST-relative.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                "json",
+                false,
+                false,
+                jsonReport,
+                junitReport,
+                8.0
+        );
+
+        assertEquals(2, exit);
+        assertTrue(Files.exists(tempDir.resolve(jsonReport)));
+        assertTrue(Files.exists(tempDir.resolve(junitReport)));
+    }
+
+    @Test
+    void runWithExistingCoverageLegacyJunitOverloadKeepsRelativePathAgainstWorkingDirectory() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path junitReport = tempDir.resolve("legacy-relative-junit.xml").toAbsolutePath().normalize();
+        Path relativeJunitReport = Path.of("").toAbsolutePath().normalize().relativize(junitReport);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                relativeJunitReport,
+                8.0
+        );
+
+        assertEquals(2, exit);
+        assertTrue(Files.exists(junitReport));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsSharedPrimaryAndJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                report,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsRootPrimaryReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path root = tempDir.toAbsolutePath().getRoot();
+        assumeTrue(root != null, "Filesystem root is unavailable");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                root,
+                tempDir.resolve("target/crap-java/TEST-crap-java.xml"),
+                8.0
+        ));
+
+        assertEquals("output must not point to a filesystem root", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsDirectoryPrimaryReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path reportDirectory = tempDir.resolve("target/crap-java/report.json");
+        Files.createDirectories(reportDirectory);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                reportDirectory,
+                tempDir.resolve("target/crap-java/TEST-crap-java.xml"),
+                8.0
+        ));
+
+        assertEquals("output must not point to a directory", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsDirectoryJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path junitDirectory = tempDir.resolve("target/crap-java/TEST-crap-java.xml");
+        Files.createDirectories(junitDirectory);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                tempDir.resolve("target/crap-java/report.json"),
+                junitDirectory,
+                8.0
+        ));
+
+        assertEquals("junitReport must not point to a directory", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsAliasedPrimaryAndJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+        Path alias = tempDir.resolve("target/crap-java/report-alias.xml");
+        Files.createDirectories(report.getParent());
+        Files.writeString(report, "existing");
+        createHardLinkOrSkip(alias, report);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                alias,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsDanglingSymlinkedPrimaryAndJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+        Files.createDirectories(report.getParent());
+        Path outputLink = createFileSymlinkOrSkip(tempDir.resolve("output-report.xml"), report);
+        Path junitLink = createFileSymlinkOrSkip(tempDir.resolve("junit-report.xml"), report);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                outputLink,
+                junitLink,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageRejectsSymlinkedParentBeforeLeafExists() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path realRoot = tempDir.resolve("real");
+        Files.createDirectories(realRoot);
+        Path aliasRoot = createDirectorySymlinkOrSkip(tempDir.resolve("alias"), realRoot);
+        Path report = realRoot.resolve("reports/report.xml");
+        Path aliasReport = aliasRoot.resolve("reports/report.xml");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                aliasReport,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
+    void runWithExistingCoverageHandlesCaseOnlyPrimaryAndJunitReportPathCollision() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("fresh/reports/report.xml");
+        Path caseVariant = tempDir.resolve("FRESH/REPORTS/REPORT.XML");
+
+        Executable run = () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                caseVariant,
+                8.0
+        );
+
+        if (isCaseInsensitiveFileSystem(tempDir)) {
+            IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, run);
+            assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+        } else {
+            assertDoesNotThrow(run);
+        }
+    }
+
+    @Test
     void runWithExistingCoverageAnalyzesPreResolvedModules() throws Exception {
         Path moduleRoot = tempDir.resolve("app");
         Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
@@ -590,6 +889,43 @@ class MainTest {
                   </package>
                 </report>
                 """.formatted(className, methodName, line));
+    }
+
+    private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {
+        Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
+        try {
+            Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
+            return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
+        } finally {
+            Files.deleteIfExists(probe);
+        }
+    }
+
+    private Path createDirectorySymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
+    }
+
+    private Path createFileSymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "File symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
+    }
+
+    private Path createHardLinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Hard links are unavailable: " + exception.getMessage());
+            return link;
+        }
     }
 }
 
