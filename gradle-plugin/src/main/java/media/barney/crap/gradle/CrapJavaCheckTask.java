@@ -32,8 +32,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 public abstract class CrapJavaCheckTask extends DefaultTask {
 
@@ -207,7 +210,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private boolean isExecutionMarkerPath(Path reportPath) {
-        return "execution.marker".equals(reportPath.getFileName().toString())
+        return isInternalFileName(reportPath, "execution.marker")
                 && internalExecutionMarkerRoots().stream()
                 .anyMatch(internalRoot -> isUnderInternalRoot(reportPath, internalRoot));
     }
@@ -232,12 +235,11 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private boolean hasRememberedStateFileName(Path reportPath) {
-        String fileName = reportPath.getFileName().toString();
-        return "primary-output.path".equals(fileName)
-                || "junit-report.path".equals(fileName)
-                || "primary-output.owner".equals(fileName)
-                || "junit-report.owner".equals(fileName)
-                || "state.lock".equals(fileName);
+        return isInternalFileName(reportPath, "primary-output.path")
+                || isInternalFileName(reportPath, "junit-report.path")
+                || isInternalFileName(reportPath, "primary-output.owner")
+                || isInternalFileName(reportPath, "junit-report.owner")
+                || isInternalFileName(reportPath, "state.lock");
     }
 
     private boolean isUnderInternalRoot(Path reportPath, Path internalRoot) {
@@ -275,6 +277,53 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             current = current.getParent();
         }
         return null;
+    }
+
+    private boolean isInternalFileName(Path reportPath, String internalFileName) {
+        String fileName = reportPath.getFileName().toString();
+        return fileName.equals(internalFileName)
+                || sameCaseInsensitiveFileName(fileName, internalFileName, reportPath.getParent());
+    }
+
+    private boolean sameCaseInsensitiveFileName(String fileName, String internalFileName, Path parent) {
+        return fileName.equalsIgnoreCase(internalFileName) && isCaseInsensitive(parent);
+    }
+
+    private boolean isCaseInsensitive(Path path) {
+        Path directory = nearestExistingDirectory(path);
+        return directory == null ? isLikelyCaseInsensitiveOs() : directoryIsCaseInsensitive(directory);
+    }
+
+    private boolean directoryIsCaseInsensitive(Path directory) {
+        try {
+            Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
+            try {
+                return caseVariantExists(probe);
+            } finally {
+                Files.deleteIfExists(probe);
+            }
+        } catch (IOException | SecurityException exception) {
+            return isLikelyCaseInsensitiveOs();
+        }
+    }
+
+    private Path nearestExistingDirectory(Path path) {
+        Path start = path == null ? Path.of(".").toAbsolutePath().normalize() : path.toAbsolutePath().normalize();
+        return ancestors(start).filter(Files::isDirectory).findFirst().orElse(null);
+    }
+
+    private Stream<Path> ancestors(Path path) {
+        return Stream.iterate(path, Objects::nonNull, Path::getParent);
+    }
+
+    private boolean caseVariantExists(Path probe) {
+        Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
+        return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
+    }
+
+    private boolean isLikelyCaseInsensitiveOs() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        return os.contains("win") || os.contains("mac");
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
