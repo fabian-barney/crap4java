@@ -390,12 +390,21 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             ReportSnapshot outputBefore,
             ReportSnapshot junitBefore
     ) throws Exception {
-        if (reportChanged(currentOutputPath, outputBefore)) {
+        if (shouldRememberChangedReport(currentOutputPath, outputBefore, rememberedOutputPath())) {
             rememberOutputPath(currentOutputPath);
         }
-        if (reportChanged(currentJunitReportPath, junitBefore)) {
+        if (shouldRememberChangedReport(currentJunitReportPath, junitBefore, rememberedJunitReportPath())) {
             rememberJunitReportPath(currentJunitReportPath);
         }
+    }
+
+    private boolean shouldRememberChangedReport(
+            Path reportPath,
+            ReportSnapshot before,
+            RememberedReport rememberedReport
+    ) throws IOException {
+        return reportChanged(reportPath, before)
+                && (rememberedReport == null || isCurrentRememberedPath(rememberedReport, reportPath));
     }
 
     private boolean reportChanged(Path reportPath, ReportSnapshot before) throws IOException {
@@ -517,7 +526,27 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         return rememberedReport.ownership().startsWith(LINK_OWNERSHIP + "\t")
                 && Files.exists(rememberedReport.ownerLink())
                 && Files.isSameFile(rememberedReport.path(), rememberedReport.ownerLink())
+                && !hasOtherOwnerLink(rememberedReport)
                 && rememberedReport.ownership().equals(ownership(rememberedReport.path()));
+    }
+
+    private boolean hasOtherOwnerLink(RememberedReport rememberedReport) throws IOException {
+        Path stateRoot = projectCacheRoot(getProject()).resolve("crap-java");
+        if (!Files.isDirectory(stateRoot)) {
+            return false;
+        }
+        try (Stream<Path> paths = Files.walk(stateRoot)) {
+            for (Path path : paths.filter(this::isOwnerLink).toList()) {
+                if (!path.equals(rememberedReport.ownerLink()) && sameExistingFile(path, rememberedReport.path())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isOwnerLink(Path path) {
+        return path.getFileName() != null && path.getFileName().toString().endsWith(".owner");
     }
 
     private String defaultJunitReportRelativePath() {

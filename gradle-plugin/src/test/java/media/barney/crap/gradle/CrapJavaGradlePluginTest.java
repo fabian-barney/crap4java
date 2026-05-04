@@ -506,6 +506,62 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void failedMovedJunitReplacementDoesNotForgetRememberedOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path oldOutput = projectRoot.resolve("outside-report.json");
+        Path replacementOutput = projectRoot.resolve("replacement-report.json");
+        Path badJunitReport = projectRoot.resolve("bad-junit.xml");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(oldOutput.toFile());
+        firstTask.runCheck();
+        assertTrue(Files.exists(oldOutput));
+        Files.createDirectories(badJunitReport);
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getFormat().set("json");
+        secondTask.getOutput().fileValue(replacementOutput.toFile());
+        secondTask.getJunitReport().fileValue(badJunitReport.toFile());
+
+        assertThrows(Exception.class, secondTask::runCheck);
+        assertTrue(Files.exists(oldOutput));
+        assertTrue(Files.exists(replacementOutput));
+
+        CrapJavaCheckTask thirdTask = newCheckTask(projectRoot);
+        thirdTask.getFormat().set("json");
+        thirdTask.getOutput().fileValue(replacementOutput.toFile());
+
+        thirdTask.runCheck();
+
+        assertFalse(Files.exists(oldOutput));
+        assertTrue(Files.exists(replacementOutput));
+    }
+
+    @Test
+    void movedOutputDoesNotDeleteReportStillOwnedByAnotherTask() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path sharedOutput = projectRoot.resolve("shared-report.json");
+        Path movedOutput = projectRoot.resolve("moved-report.json");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot, "first-crap-java-check");
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(sharedOutput.toFile());
+        firstTask.runCheck();
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot, "second-crap-java-check");
+        secondTask.getFormat().set("json");
+        secondTask.getOutput().fileValue(sharedOutput.toFile());
+        secondTask.runCheck();
+
+        CrapJavaCheckTask movedFirstTask = newCheckTask(projectRoot, "first-crap-java-check");
+        movedFirstTask.getFormat().set("json");
+        movedFirstTask.getOutput().fileValue(movedOutput.toFile());
+
+        movedFirstTask.runCheck();
+
+        assertTrue(Files.exists(sharedOutput));
+        assertTrue(Files.exists(movedOutput));
+    }
+
+    @Test
     void aliasedFutureReportPathCollisionDoesNotDeleteRememberedOutput() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Path output = projectRoot.resolve("outside-report.json");
@@ -886,8 +942,12 @@ class CrapJavaGradlePluginTest {
     }
 
     private CrapJavaCheckTask newCheckTask(Path projectRoot) {
+        return newCheckTask(projectRoot, "crap-java-check");
+    }
+
+    private CrapJavaCheckTask newCheckTask(Path projectRoot, String name) {
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
-        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        CrapJavaCheckTask task = project.getTasks().register(name, CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         return task;
