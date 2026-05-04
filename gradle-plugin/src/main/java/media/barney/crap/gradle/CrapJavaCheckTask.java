@@ -140,7 +140,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         Path analysisRoot = getAnalysisRoot().get().getAsFile().toPath().toAbsolutePath().normalize();
         Path configuredOutputPath = outputPath();
         Path configuredJunitReportPath = junitReportPath();
-        validateReportPaths(configuredOutputPath, configuredJunitReportPath);
+        validateReportOptions(configuredOutputPath, configuredJunitReportPath);
         List<Main.ResolvedCoverageModule> modules = sourceFiles.isEmpty() ? List.of() : resolvedModules(sourceFiles);
         int exit = runWithReportStateLock(
                 modules,
@@ -206,6 +206,28 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                     junitBefore
             );
             throw exception;
+        }
+    }
+
+    private void validateReportOptions(Path outputPath, Path junitReportPath) throws IOException {
+        validateReportFormat(getFormat().get());
+        validateThreshold(getThreshold().get());
+        validateReportPaths(outputPath, junitReportPath);
+    }
+
+    private void validateReportFormat(String format) {
+        if (format == null) {
+            throw new GradleException("Unknown report format: null");
+        }
+        switch (format.toLowerCase(Locale.ROOT)) {
+            case "toon", "json", "text", "junit", "none" -> { return; }
+            default -> throw new GradleException("Unknown report format: " + format);
+        }
+    }
+
+    private void validateThreshold(double threshold) {
+        if (!Double.isFinite(threshold) || Double.compare(threshold, 0.0) <= 0) {
+            throw new GradleException("Threshold must be a finite number greater than 0");
         }
     }
 
@@ -663,11 +685,50 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (first.equals(second)) {
             return true;
         }
-        return sameExistingFile(first, second);
+        return sameExistingFile(first, second) || sameParentAndFileName(first, second);
     }
 
     private boolean sameExistingFile(Path first, Path second) throws IOException {
         return Files.exists(first) && Files.exists(second) && Files.isSameFile(first, second);
+    }
+
+    private boolean sameParentAndFileName(Path first, Path second) throws IOException {
+        Path firstParent = first.getParent();
+        Path secondParent = second.getParent();
+        return sameParent(firstParent, secondParent) && sameFileName(first, second, firstParent);
+    }
+
+    private boolean sameParent(Path firstParent, Path secondParent) throws IOException {
+        return (firstParent == null || secondParent == null)
+                ? firstParent == secondParent
+                : sameNonNullParent(firstParent, secondParent);
+    }
+
+    private boolean sameNonNullParent(Path firstParent, Path secondParent) throws IOException {
+        return firstParent.equals(secondParent)
+                || sameAliasedParent(firstParent, secondParent);
+    }
+
+    private boolean sameAliasedParent(Path firstParent, Path secondParent) throws IOException {
+        return sameExistingFile(firstParent, secondParent)
+                || sameRealPath(firstParent, secondParent)
+                || sameCaseInsensitivePath(firstParent, secondParent);
+    }
+
+    private boolean sameRealPath(Path first, Path second) {
+        Path firstRealPath = realPathForComparison(first);
+        Path secondRealPath = realPathForComparison(second);
+        return firstRealPath != null && firstRealPath.equals(secondRealPath);
+    }
+
+    private boolean sameCaseInsensitivePath(Path first, Path second) {
+        return first.toString().equalsIgnoreCase(second.toString()) && isCaseInsensitive(first);
+    }
+
+    private boolean sameFileName(Path first, Path second, Path parent) {
+        String firstName = first.getFileName().toString();
+        String secondName = second.getFileName().toString();
+        return firstName.equals(secondName) || sameCaseInsensitiveFileName(firstName, secondName, parent);
     }
 
     private record RememberedReport(Path path, String ownership, Path ownerLink) {

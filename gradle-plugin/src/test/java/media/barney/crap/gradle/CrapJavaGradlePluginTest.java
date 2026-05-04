@@ -413,6 +413,67 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void invalidFormatDoesNotDeleteRememberedOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path output = projectRoot.resolve("outside-report.json");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(output.toFile());
+        firstTask.runCheck();
+        assertTrue(Files.exists(output));
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getFormat().set("invalid");
+
+        GradleException exception = assertThrows(GradleException.class, secondTask::runCheck);
+
+        assertTrue(exception.getMessage().contains("Unknown report format: invalid"));
+        assertTrue(Files.exists(output));
+    }
+
+    @Test
+    void invalidThresholdDoesNotDeleteRememberedOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path output = projectRoot.resolve("outside-report.json");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(output.toFile());
+        firstTask.runCheck();
+        assertTrue(Files.exists(output));
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getThreshold().set(0.0);
+
+        GradleException exception = assertThrows(GradleException.class, secondTask::runCheck);
+
+        assertTrue(exception.getMessage().contains("Threshold must be a finite number greater than 0"));
+        assertTrue(Files.exists(output));
+    }
+
+    @Test
+    void aliasedFutureReportPathCollisionDoesNotDeleteRememberedOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path output = projectRoot.resolve("outside-report.json");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(output.toFile());
+        firstTask.runCheck();
+        assertTrue(Files.exists(output));
+
+        Path reportDirectory = projectRoot.resolve("reports");
+        Files.createDirectories(reportDirectory);
+        Path reportAlias = createDirectorySymlinkOrSkip(projectRoot.resolve("reports-alias"), reportDirectory);
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getOutput().fileValue(reportDirectory.resolve("collision.xml").toFile());
+        secondTask.getJunitReport().fileValue(reportAlias.resolve("collision.xml").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, secondTask::runCheck);
+
+        assertTrue(exception.getMessage().contains("output and junitReport must not point to the same file"));
+        assertTrue(Files.exists(output));
+    }
+
+    @Test
     void runCheckRejectsOtherTaskInternalStatePath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -739,6 +800,14 @@ class CrapJavaGradlePluginTest {
             assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
             return link;
         }
+    }
+
+    private CrapJavaCheckTask newCheckTask(Path projectRoot) {
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        return task;
     }
 
     private void rememberOwnedReport(Path statePath, Path reportPath) throws Exception {
