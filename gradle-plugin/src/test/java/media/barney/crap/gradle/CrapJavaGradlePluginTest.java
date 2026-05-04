@@ -842,8 +842,8 @@ class CrapJavaGradlePluginTest {
 
         task.runCheck();
 
-        assertTrue(Files.exists(projectRoot.resolve(".gradle/crap-java/sub/crap-java-check/junit-report.path")));
-        assertFalse(Files.exists(subprojectRoot.resolve(".gradle/crap-java/sub/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(projectRoot.resolve(".gradle/crap-java/%3Asub/crap-java-check/junit-report.path")));
+        assertFalse(Files.exists(subprojectRoot.resolve(".gradle/crap-java/%3Asub/crap-java-check/junit-report.path")));
     }
 
     @Test
@@ -855,6 +855,7 @@ class CrapJavaGradlePluginTest {
         root.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
         Files.createDirectories(projectRoot.resolve("a-b"));
         Files.createDirectories(projectRoot.resolve("a/b"));
+        Files.createDirectories(projectRoot.resolve("root"));
         Project dashProject = ProjectBuilder.builder()
                 .withName("a-b")
                 .withParent(root)
@@ -870,18 +871,46 @@ class CrapJavaGradlePluginTest {
                 .withParent(nestedParent)
                 .withProjectDir(projectRoot.resolve("a/b").toFile())
                 .build();
+        Project rootNamedProject = ProjectBuilder.builder()
+                .withName("root")
+                .withParent(root)
+                .withProjectDir(projectRoot.resolve("root").toFile())
+                .build();
         CrapJavaCheckTask dashTask = dashProject.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         CrapJavaCheckTask nestedTask = nestedProject.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        CrapJavaCheckTask rootNamedTask = rootNamedProject.getTasks()
+                .register("crap-java-check", CrapJavaCheckTask.class)
+                .get();
         dashTask.getAnalysisRoot().fileValue(projectRoot.toFile());
         dashTask.getModuleCoverageReports().set(Map.of());
         nestedTask.getAnalysisRoot().fileValue(projectRoot.toFile());
         nestedTask.getModuleCoverageReports().set(Map.of());
+        rootNamedTask.getAnalysisRoot().fileValue(projectRoot.toFile());
+        rootNamedTask.getModuleCoverageReports().set(Map.of());
 
         dashTask.runCheck();
         nestedTask.runCheck();
+        rootNamedTask.runCheck();
 
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/a-b/crap-java-check/junit-report.path")));
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/a%3Ab/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aa-b/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aa%3Ab/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aroot/crap-java-check/junit-report.path")));
+        assertFalse(Files.exists(projectCacheDir.resolve("crap-java/root/crap-java-check/junit-report.path")));
+    }
+
+    @Test
+    void rememberedStatePreservesTrailingSpacesInStoredPath() throws Exception {
+        assumeTrue(!isWindows(), "Windows does not support filenames ending with spaces");
+        Path projectRoot = tempDir.toRealPath();
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/crap-java-check/primary-output.path");
+        Path storedPath = projectRoot.resolve("report.json ");
+        Files.createDirectories(statePath.getParent());
+        Files.writeString(statePath, storedPath + "\nlink\t1\t2\n");
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+
+        Path rememberedPath = rememberedReportPath(task, statePath);
+
+        assertEquals(storedPath.toAbsolutePath().normalize(), rememberedPath);
     }
 
     @Test
@@ -1030,6 +1059,16 @@ class CrapJavaGradlePluginTest {
         return (Path) stateLockPath.invoke(task);
     }
 
+    private Path rememberedReportPath(CrapJavaCheckTask task, Path statePath) throws Exception {
+        Method rememberedReportPath = CrapJavaCheckTask.class.getDeclaredMethod("rememberedReportPath", Path.class);
+        rememberedReportPath.setAccessible(true);
+        Object rememberedReport = rememberedReportPath.invoke(task, statePath);
+        assertNotNull(rememberedReport);
+        Method path = rememberedReport.getClass().getDeclaredMethod("path");
+        path.setAccessible(true);
+        return (Path) path.invoke(rememberedReport);
+    }
+
     private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {
         Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
         try {
@@ -1038,6 +1077,10 @@ class CrapJavaGradlePluginTest {
         } finally {
             Files.deleteIfExists(probe);
         }
+    }
+
+    private boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 }
 

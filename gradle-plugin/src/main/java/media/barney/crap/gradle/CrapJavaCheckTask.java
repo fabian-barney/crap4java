@@ -696,7 +696,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return null;
         }
         return new RememberedReport(
-                Path.of(lines.get(0).trim()).toAbsolutePath().normalize(),
+                Path.of(lines.get(0)).toAbsolutePath().normalize(),
                 lines.get(1),
                 ownerLinkPath(statePath)
         );
@@ -742,7 +742,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (":".equals(projectPath)) {
             return "root";
         }
-        return projectPath.substring(1)
+        return projectPath
                 .replace("%", "%25")
                 .replace(":", "%3A");
     }
