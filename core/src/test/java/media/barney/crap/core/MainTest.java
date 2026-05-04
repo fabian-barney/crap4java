@@ -515,6 +515,33 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsAliasedPrimaryAndJunitReportPath() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+        Path alias = tempDir.resolve("target/crap-java/report-alias.xml");
+        Files.createDirectories(report.getParent());
+        Files.writeString(report, "existing");
+        Files.createLink(alias, report);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                alias,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageAnalyzesPreResolvedModules() throws Exception {
         Path moduleRoot = tempDir.resolve("app");
         Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");

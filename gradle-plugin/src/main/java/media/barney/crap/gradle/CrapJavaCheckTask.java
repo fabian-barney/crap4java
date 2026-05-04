@@ -184,8 +184,8 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         }
     }
 
-    private void validateReportPaths(Path outputPath, Path junitReportPath) {
-        if (outputPath != null && outputPath.equals(junitReportPath)) {
+    private void validateReportPaths(Path outputPath, Path junitReportPath) throws IOException {
+        if (outputPath != null && junitReportPath != null && sameReportTarget(outputPath, junitReportPath)) {
             throw new GradleException("output and junitReport must not point to the same file");
         }
         validateReportPathDoesNotUseInternalFile("output", outputPath);
@@ -221,7 +221,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private boolean hasRememberedStateFileName(Path reportPath) {
         String fileName = reportPath.getFileName().toString();
-        return "primary-output.path".equals(fileName) || "junit-report.path".equals(fileName);
+        return "primary-output.path".equals(fileName)
+                || "junit-report.path".equals(fileName)
+                || "primary-output.owner".equals(fileName)
+                || "junit-report.owner".equals(fileName);
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
@@ -247,10 +250,18 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private void deleteRememberedOutputIfMoved(RememberedReport rememberedReport, Path currentPath) throws Exception {
-        if (rememberedReport == null || rememberedReport.path().equals(currentPath)) {
+        if (shouldKeepRememberedOutput(rememberedReport, currentPath)) {
             return;
         }
         deleteRememberedReport(rememberedReport);
+    }
+
+    private boolean shouldKeepRememberedOutput(RememberedReport rememberedReport, Path currentPath) throws IOException {
+        return rememberedReport == null || isCurrentRememberedPath(rememberedReport, currentPath);
+    }
+
+    private boolean isCurrentRememberedPath(RememberedReport rememberedReport, Path currentPath) throws IOException {
+        return currentPath != null && sameReportTarget(rememberedReport.path(), currentPath);
     }
 
     private void deleteOutputStateIfUnset(Path currentPath) throws Exception {
@@ -264,9 +275,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return;
         }
         RememberedReport rememberedReport = rememberedJunitReportPath();
-        if (rememberedReport != null && !rememberedReport.path().equals(currentPath)) {
+        if (rememberedReport != null && !sameReportTarget(rememberedReport.path(), currentPath)) {
             deleteRememberedReport(rememberedReport);
         }
+        deleteDefaultJunitReportIfMoved(currentPath);
     }
 
     private Path outputPath() {
@@ -288,6 +300,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return;
         }
         deleteRememberedReport(rememberedJunitReportPath());
+        Files.deleteIfExists(defaultJunitReportPath());
         deleteReportState(junitReportStatePath());
     }
 
@@ -316,6 +329,17 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return "reports/crap-java/TEST-crap-java.xml";
         }
         return "reports/crap-java/" + getName() + "/TEST-crap-java.xml";
+    }
+
+    private void deleteDefaultJunitReportIfMoved(Path currentPath) throws IOException {
+        Path defaultPath = defaultJunitReportPath();
+        if (!sameReportTarget(defaultPath, currentPath)) {
+            Files.deleteIfExists(defaultPath);
+        }
+    }
+
+    private Path defaultJunitReportPath() {
+        return defaultJunitReport.get().getAsFile().toPath().toAbsolutePath().normalize();
     }
 
     private void rememberOutputPath(Path path) throws Exception {
@@ -440,7 +464,20 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (":".equals(projectPath)) {
             return "root";
         }
-        return projectPath.substring(1).replace(':', '-');
+        return projectPath.substring(1)
+                .replace("%", "%25")
+                .replace(":", "%3A");
+    }
+
+    private boolean sameReportTarget(Path first, Path second) throws IOException {
+        if (first.equals(second)) {
+            return true;
+        }
+        return sameExistingFile(first, second);
+    }
+
+    private boolean sameExistingFile(Path first, Path second) throws IOException {
+        return Files.exists(first) && Files.exists(second) && Files.isSameFile(first, second);
     }
 
     private record RememberedReport(Path path, String ownership, Path ownerLink) {

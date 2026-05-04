@@ -253,6 +253,42 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void movedJunitReportDeletesStaleDefaultSidecarWithoutRememberedState() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        Path customJunitReport = projectRoot.resolve("custom-junit.xml");
+        Files.createDirectories(defaultJunitReport.getParent());
+        Files.writeString(defaultJunitReport, "stale");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunitReport().fileValue(customJunitReport.toFile());
+
+        task.runCheck();
+
+        assertTrue(Files.exists(customJunitReport));
+        assertFalse(Files.exists(defaultJunitReport));
+    }
+
+    @Test
+    void disabledJunitDeletesStaleDefaultSidecarWithoutRememberedState() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        Files.createDirectories(defaultJunitReport.getParent());
+        Files.writeString(defaultJunitReport, "stale");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getJunit().set(false);
+
+        task.runCheck();
+
+        assertFalse(Files.exists(defaultJunitReport));
+    }
+
+    @Test
     void disabledJunitDeletesOwnedRememberedExternalSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -360,6 +396,20 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsOtherTaskInternalOwnerPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.owner").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
     void rememberedStateUsesGradleProjectCacheDir() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Path projectCacheDir = projectRoot.resolve("custom-project-cache");
@@ -376,7 +426,44 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
-    void disabledCustomTaskDoesNotDeleteBuiltInTaskSidecar() throws Exception {
+    void rememberedStateEscapesProjectPathSeparators() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path projectCacheDir = projectRoot.resolve("custom-project-cache");
+        Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        root.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
+        Files.createDirectories(projectRoot.resolve("a-b"));
+        Files.createDirectories(projectRoot.resolve("a/b"));
+        Project dashProject = ProjectBuilder.builder()
+                .withName("a-b")
+                .withParent(root)
+                .withProjectDir(projectRoot.resolve("a-b").toFile())
+                .build();
+        Project nestedParent = ProjectBuilder.builder()
+                .withName("a")
+                .withParent(root)
+                .withProjectDir(projectRoot.resolve("a").toFile())
+                .build();
+        Project nestedProject = ProjectBuilder.builder()
+                .withName("b")
+                .withParent(nestedParent)
+                .withProjectDir(projectRoot.resolve("a/b").toFile())
+                .build();
+        CrapJavaCheckTask dashTask = dashProject.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        CrapJavaCheckTask nestedTask = nestedProject.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        dashTask.getAnalysisRoot().fileValue(projectRoot.toFile());
+        dashTask.getModuleCoverageReports().set(Map.of());
+        nestedTask.getAnalysisRoot().fileValue(projectRoot.toFile());
+        nestedTask.getModuleCoverageReports().set(Map.of());
+
+        dashTask.runCheck();
+        nestedTask.runCheck();
+
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/a-b/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/a%3Ab/crap-java-check/junit-report.path")));
+    }
+
+    @Test
+    void disabledCustomTaskOnlyDeletesOwnDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path builtInJunit = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
@@ -394,7 +481,7 @@ class CrapJavaGradlePluginTest {
         task.runCheck();
 
         assertTrue(Files.exists(builtInJunit));
-        assertTrue(Files.exists(customJunit));
+        assertFalse(Files.exists(customJunit));
     }
 
     @Test
