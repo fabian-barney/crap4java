@@ -410,6 +410,20 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsOtherTaskInternalLockPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/root/other-task/state.lock").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
     void runCheckRejectsSubprojectInternalExecutionMarkerPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Files.createDirectories(projectRoot.resolve("sub"));

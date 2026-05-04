@@ -1,6 +1,7 @@
 package media.barney.crap.core;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
@@ -9,7 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -542,15 +545,14 @@ class MainTest {
     }
 
     @Test
-    void runWithExistingCoverageRejectsCaseOnlyPrimaryAndJunitReportPathCollision() throws Exception {
+    void runWithExistingCoverageHandlesCaseOnlyPrimaryAndJunitReportPathCollision() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
         Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
         Path report = tempDir.resolve("target/crap-java/report.xml");
         Path caseVariant = tempDir.resolve("target/crap-java/REPORT.XML");
-        Files.createDirectories(report.getParent());
 
-        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+        Executable run = () -> Main.runWithExistingCoverage(
                 List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
                 tempDir,
                 new PrintStream(new ByteArrayOutputStream()),
@@ -561,9 +563,14 @@ class MainTest {
                 report,
                 caseVariant,
                 8.0
-        ));
+        );
 
-        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+        if (isCaseInsensitiveFileSystem(tempDir)) {
+            IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, run);
+            assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+        } else {
+            assertDoesNotThrow(run);
+        }
     }
 
     @Test
@@ -731,6 +738,16 @@ class MainTest {
                   </package>
                 </report>
                 """.formatted(className, methodName, line));
+    }
+
+    private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {
+        Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
+        try {
+            Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
+            return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
+        } finally {
+            Files.deleteIfExists(probe);
+        }
     }
 }
 

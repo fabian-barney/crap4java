@@ -234,7 +234,8 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         return "primary-output.path".equals(fileName)
                 || "junit-report.path".equals(fileName)
                 || "primary-output.owner".equals(fileName)
-                || "junit-report.owner".equals(fileName);
+                || "junit-report.owner".equals(fileName)
+                || "state.lock".equals(fileName);
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
