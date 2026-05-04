@@ -164,7 +164,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         Files.createDirectories(lockPath.getParent());
         try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
              FileLock ignored = channel.lock()) {
-            cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
             return runAndRememberReports(
                     modules,
                     analysisRoot,
@@ -196,6 +195,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                     configuredJunitReportPath,
                     getThreshold().get()
             );
+            cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
             rememberReportState(configuredOutputPath, configuredJunitReportPath);
             return exit;
         } catch (Exception exception) {
@@ -473,7 +473,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!shouldKeepRememberedReport(rememberedReport, currentPath, otherCurrentPath)) {
             deleteRememberedReport(rememberedReport);
         }
-        deleteDefaultJunitReportIfMoved(currentPath, otherCurrentPath);
     }
 
     private Path outputPath() {
@@ -498,7 +497,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!shouldKeepRememberedReport(rememberedReport, currentOutputPath, null)) {
             deleteRememberedReport(rememberedReport);
         }
-        deleteDefaultJunitReportIfDisabled(currentOutputPath);
         deleteReportState(junitReportStatePath());
     }
 
@@ -527,24 +525,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return "reports/crap-java/TEST-crap-java.xml";
         }
         return "reports/crap-java/" + getName() + "/TEST-crap-java.xml";
-    }
-
-    private void deleteDefaultJunitReportIfMoved(Path currentPath, Path otherCurrentPath) throws IOException {
-        Path defaultPath = defaultJunitReportPath();
-        if (!isCurrentPath(defaultPath, currentPath) && !isCurrentPath(defaultPath, otherCurrentPath)) {
-            Files.deleteIfExists(defaultPath);
-        }
-    }
-
-    private void deleteDefaultJunitReportIfDisabled(Path currentOutputPath) throws IOException {
-        Path defaultPath = defaultJunitReportPath();
-        if (!isCurrentPath(defaultPath, currentOutputPath)) {
-            Files.deleteIfExists(defaultPath);
-        }
-    }
-
-    private boolean isCurrentPath(Path path, Path currentPath) throws IOException {
-        return currentPath != null && sameReportTarget(path, currentPath);
     }
 
     private Path defaultJunitReportPath() {

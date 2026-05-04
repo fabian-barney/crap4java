@@ -259,13 +259,13 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
-    void movedJunitReportDeletesStaleDefaultSidecarWithoutRememberedState() throws Exception {
+    void movedJunitReportDoesNotDeleteUnownedDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         Path customJunitReport = projectRoot.resolve("custom-junit.xml");
         Files.createDirectories(defaultJunitReport.getParent());
-        Files.writeString(defaultJunitReport, "stale");
+        Files.writeString(defaultJunitReport, "user-managed");
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
@@ -274,22 +274,56 @@ class CrapJavaGradlePluginTest {
         task.runCheck();
 
         assertTrue(Files.exists(customJunitReport));
-        assertFalse(Files.exists(defaultJunitReport));
+        assertEquals("user-managed", Files.readString(defaultJunitReport));
     }
 
     @Test
-    void disabledJunitDeletesStaleDefaultSidecarWithoutRememberedState() throws Exception {
+    void disabledJunitDoesNotDeleteUnownedDefaultSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
         Files.createDirectories(defaultJunitReport.getParent());
-        Files.writeString(defaultJunitReport, "stale");
+        Files.writeString(defaultJunitReport, "user-managed");
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         task.getJunit().set(false);
 
         task.runCheck();
+
+        assertEquals("user-managed", Files.readString(defaultJunitReport));
+    }
+
+    @Test
+    void movedJunitReportDeletesOwnedRememberedDefaultSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        Path customJunitReport = projectRoot.resolve("custom-junit.xml");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.runCheck();
+        assertTrue(Files.exists(defaultJunitReport));
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getJunitReport().fileValue(customJunitReport.toFile());
+
+        secondTask.runCheck();
+
+        assertTrue(Files.exists(customJunitReport));
+        assertFalse(Files.exists(defaultJunitReport));
+    }
+
+    @Test
+    void disabledJunitDeletesOwnedRememberedDefaultSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path defaultJunitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.runCheck();
+        assertTrue(Files.exists(defaultJunitReport));
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getJunit().set(false);
+
+        secondTask.runCheck();
 
         assertFalse(Files.exists(defaultJunitReport));
     }
@@ -448,6 +482,27 @@ class CrapJavaGradlePluginTest {
 
         assertTrue(exception.getMessage().contains("Threshold must be a finite number greater than 0"));
         assertTrue(Files.exists(output));
+    }
+
+    @Test
+    void failedReplacementOutputDoesNotDeleteRememberedOutput() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path oldOutput = projectRoot.resolve("outside-report.json");
+        Path replacementOutput = projectRoot.resolve("replacement-report.json");
+        CrapJavaCheckTask firstTask = newCheckTask(projectRoot);
+        firstTask.getFormat().set("json");
+        firstTask.getOutput().fileValue(oldOutput.toFile());
+        firstTask.runCheck();
+        assertTrue(Files.exists(oldOutput));
+        Files.createDirectories(replacementOutput);
+
+        CrapJavaCheckTask secondTask = newCheckTask(projectRoot);
+        secondTask.getFormat().set("json");
+        secondTask.getOutput().fileValue(replacementOutput.toFile());
+
+        assertThrows(Exception.class, secondTask::runCheck);
+
+        assertTrue(Files.exists(oldOutput));
     }
 
     @Test
@@ -752,7 +807,7 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
-    void disabledCustomTaskOnlyDeletesOwnDefaultSidecar() throws Exception {
+    void disabledCustomTaskDoesNotDeleteUnownedDefaultSidecars() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         Path builtInJunit = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
@@ -768,6 +823,34 @@ class CrapJavaGradlePluginTest {
         task.getJunit().set(false);
 
         task.runCheck();
+
+        assertTrue(Files.exists(builtInJunit));
+        assertEquals("<testsuites tests=\"2\"/>", Files.readString(customJunit));
+    }
+
+    @Test
+    void disabledCustomTaskOnlyDeletesOwnedDefaultSidecar() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path builtInJunit = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        Path customJunit = projectRoot.resolve("build/reports/crap-java/custom-crap-java-check/TEST-crap-java.xml");
+        Files.createDirectories(builtInJunit.getParent());
+        Files.writeString(builtInJunit, "<testsuites tests=\"1\"/>");
+        CrapJavaCheckTask firstTask = project.getTasks().register("custom-crap-java-check", CrapJavaCheckTask.class).get();
+        firstTask.getAnalysisRoot().fileValue(projectRoot.toFile());
+        firstTask.getModuleCoverageReports().set(Map.of());
+        firstTask.runCheck();
+        assertTrue(Files.exists(customJunit));
+
+        Project secondProject = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask secondTask = secondProject.getTasks()
+                .register("custom-crap-java-check", CrapJavaCheckTask.class)
+                .get();
+        secondTask.getAnalysisRoot().fileValue(projectRoot.toFile());
+        secondTask.getModuleCoverageReports().set(Map.of());
+        secondTask.getJunit().set(false);
+
+        secondTask.runCheck();
 
         assertTrue(Files.exists(builtInJunit));
         assertFalse(Files.exists(customJunit));
