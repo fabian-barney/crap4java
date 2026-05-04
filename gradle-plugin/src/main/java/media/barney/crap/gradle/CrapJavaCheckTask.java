@@ -5,6 +5,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
@@ -24,11 +25,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,12 +44,15 @@ import java.util.stream.Stream;
 public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private static final String LINK_OWNERSHIP = "link";
+    private static final String ENCODED_PATH_PREFIX = "path-base64\t";
 
     private final Provider<RegularFile> defaultJunitReport;
     private final Provider<RegularFile> executionMarker;
     private final RegularFileProperty junitReportState;
     private final RegularFileProperty outputState;
     private final RegularFileProperty stateLock;
+    private final List<Provider<Directory>> internalExecutionMarkerRootProviders;
+    private final List<Path> internalRememberedStateRootPaths;
     private final Provider<String> absentString;
     private final Provider<RegularFile> absentRegularFile;
 
@@ -64,6 +70,16 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         outputState.fileValue(localStateFile("primary-output.path"));
         stateLock = getProject().getObjects().fileProperty();
         stateLock.fileValue(globalStateFile("state.lock"));
+        internalExecutionMarkerRootProviders = getProject().getRootProject().getAllprojects().stream()
+                .map(project -> project.getLayout().getBuildDirectory().dir("tmp/crap-java"))
+                .toList();
+        internalRememberedStateRootPaths = getProject().getRootProject().getAllprojects().stream()
+                .flatMap(project -> {
+                    Path stateRoot = projectCacheRoot(project).resolve("crap-java");
+                    return Stream.of(stateRoot, stateRoot.resolve(projectStateName(project)));
+                })
+                .distinct()
+                .toList();
         getThreshold().convention(Main.DEFAULT_THRESHOLD);
         getAgent().convention(false);
         getFormat().convention(getAgent().map(agent -> agent ? "toon" : "none"));
@@ -259,44 +275,77 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private boolean isInternalTaskFile(Path reportPath) {
-        return isExecutionMarkerPath(reportPath) || isRememberedPathStateFile(reportPath);
+        return isUnderAnyInternalRoot(reportPath) || sameFileAsExistingInternalFile(reportPath);
     }
 
-    private boolean isExecutionMarkerPath(Path reportPath) {
-        return isInternalFileName(reportPath, "execution.marker")
-                && internalExecutionMarkerRoots().stream()
-                .anyMatch(internalRoot -> isUnderInternalRoot(reportPath, internalRoot));
-    }
-
-    private boolean isRememberedPathStateFile(Path reportPath) {
-        return hasRememberedStateFileName(reportPath)
-                && internalRememberedStateRoots().stream()
+    private boolean isUnderAnyInternalRoot(Path reportPath) {
+        return internalTaskRoots().stream()
                 .anyMatch(internalRoot -> isUnderInternalRoot(reportPath, internalRoot));
     }
 
     private List<Path> internalExecutionMarkerRoots() {
-        return getProject().getRootProject().getAllprojects().stream()
-                .map(project -> project.getLayout().getBuildDirectory().dir("tmp/crap-java").get())
+        return internalExecutionMarkerRootProviders.stream()
+                .map(Provider::get)
                 .map(directory -> directory.getAsFile().toPath().toAbsolutePath().normalize())
                 .toList();
     }
 
     private List<Path> internalRememberedStateRoots() {
-        return getProject().getRootProject().getAllprojects().stream()
-                .flatMap(project -> {
-                    Path stateRoot = projectCacheRoot(project).resolve("crap-java");
-                    return Stream.of(stateRoot, stateRoot.resolve(projectStateName(project)));
-                })
+        return internalRememberedStateRootPaths;
+    }
+
+    private List<Path> internalTaskRoots() {
+        return Stream.concat(internalExecutionMarkerRoots().stream(), internalRememberedStateRoots().stream())
                 .distinct()
                 .toList();
     }
 
-    private boolean hasRememberedStateFileName(Path reportPath) {
-        return isInternalFileName(reportPath, "primary-output.path")
-                || isInternalFileName(reportPath, "junit-report.path")
-                || isInternalFileName(reportPath, "primary-output.owner")
-                || isInternalFileName(reportPath, "junit-report.owner")
-                || isInternalFileName(reportPath, "state.lock");
+    private boolean sameFileAsExistingInternalFile(Path reportPath) {
+        if (!Files.exists(reportPath)) {
+            return false;
+        }
+        return internalTaskRoots().stream()
+                .anyMatch(internalRoot -> sameFileAsExistingInternalFile(reportPath, internalRoot));
+    }
+
+    private boolean sameFileAsExistingInternalFile(Path reportPath, Path internalRoot) {
+        if (!Files.isDirectory(internalRoot)) {
+            return false;
+        }
+        try (Stream<Path> candidates = Files.walk(internalRoot)) {
+            return candidates
+                    .filter(this::isInternalStateOrMarkerFile)
+                    .filter(Files::isRegularFile)
+                    .anyMatch(candidate -> sameFile(reportPath, candidate));
+        } catch (IOException | SecurityException exception) {
+            return false;
+        }
+    }
+
+    private boolean isInternalStateOrMarkerFile(Path path) {
+        return isInternalFileName(path, "execution.marker")
+                || isInternalFileName(path, "primary-output.path")
+                || isInternalFileName(path, "junit-report.path")
+                || isInternalFileName(path, "state.lock");
+    }
+
+    private boolean isInternalFileName(Path path, String internalFileName) {
+        Path fileName = path.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        String name = fileName.toString();
+        return name.equals(internalFileName)
+                || sameCaseInsensitiveFileName(name, internalFileName, path.getParent());
+    }
+
+    private boolean sameFile(Path first, Path second) {
+        try {
+            return !first.toAbsolutePath().normalize().equals(second.toAbsolutePath().normalize())
+                    && Files.isSameFile(first, second);
+        } catch (IOException | SecurityException exception) {
+            return false;
+        }
     }
 
     private boolean isUnderInternalRoot(Path reportPath, Path internalRoot) {
@@ -334,12 +383,6 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             current = current.getParent();
         }
         return null;
-    }
-
-    private boolean isInternalFileName(Path reportPath, String internalFileName) {
-        String fileName = reportPath.getFileName().toString();
-        return fileName.equals(internalFileName)
-                || sameCaseInsensitiveFileName(fileName, internalFileName, reportPath.getParent());
     }
 
     private boolean sameCaseInsensitiveFileName(String fileName, String internalFileName, Path parent) {
@@ -645,7 +688,13 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             Files.deleteIfExists(statePath);
             return;
         }
-        Files.writeString(statePath, reportPath + "\n" + ownership + "\n");
+        Files.writeString(statePath, encodeRememberedReportPath(reportPath) + "\n" + ownership + "\n");
+    }
+
+    private String encodeRememberedReportPath(Path reportPath) {
+        String encoded = Base64.getEncoder()
+                .encodeToString(reportPath.toString().getBytes(StandardCharsets.UTF_8));
+        return ENCODED_PATH_PREFIX + encoded;
     }
 
     private String ownership(Path reportPath, Path ownerLink) throws Exception {
@@ -695,11 +744,31 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!hasRememberedReport(lines)) {
             return null;
         }
+        Path reportPath = parseRememberedReportPath(lines.get(0));
+        if (reportPath == null) {
+            return null;
+        }
         return new RememberedReport(
-                Path.of(lines.get(0)).toAbsolutePath().normalize(),
+                reportPath,
                 lines.get(1),
                 ownerLinkPath(statePath)
         );
+    }
+
+    private Path parseRememberedReportPath(String line) {
+        if (line.startsWith(ENCODED_PATH_PREFIX)) {
+            return decodeRememberedReportPath(line.substring(ENCODED_PATH_PREFIX.length()));
+        }
+        return Path.of(line).toAbsolutePath().normalize();
+    }
+
+    private Path decodeRememberedReportPath(String encoded) {
+        try {
+            byte[] decoded = Base64.getDecoder().decode(encoded);
+            return Path.of(new String(decoded, StandardCharsets.UTF_8)).toAbsolutePath().normalize();
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private boolean hasRememberedReport(List<String> lines) {

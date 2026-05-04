@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -665,43 +666,33 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
-    void runCheckHandlesCaseOnlyInternalExecutionMarkerPathByFileSystem() throws Exception {
+    void runCheckRejectsInternalExecutionMarkerRootPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
-        Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/EXECUTION.MARKER");
-        Files.createDirectories(markerPath.getParent());
+        Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/report.xml");
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         task.getOutput().fileValue(markerPath.toFile());
 
-        if (isCaseInsensitiveFileSystem(projectRoot)) {
-            GradleException exception = assertThrows(GradleException.class, task::runCheck);
-            assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
-        } else {
-            task.runCheck();
-            assertTrue(Files.exists(markerPath));
-        }
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
     }
 
     @Test
-    void runCheckHandlesCaseOnlyInternalStatePathByFileSystem() throws Exception {
+    void runCheckRejectsInternalStateRootPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
-        Path statePath = projectRoot.resolve(".gradle/crap-java/root/other-task/PRIMARY-OUTPUT.PATH");
-        Files.createDirectories(statePath.getParent());
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/other-task/report.xml");
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         task.getOutput().fileValue(statePath.toFile());
 
-        if (isCaseInsensitiveFileSystem(projectRoot)) {
-            GradleException exception = assertThrows(GradleException.class, task::runCheck);
-            assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
-        } else {
-            task.runCheck();
-            assertTrue(Files.exists(statePath));
-        }
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
     }
 
     @Test
@@ -732,6 +723,60 @@ class CrapJavaGradlePluginTest {
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
         task.getOutput().fileValue(markerAlias.resolve("crap-java-check/execution.marker").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsFileSymlinkAliasToInternalStatePath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.path");
+        Files.createDirectories(statePath.getParent());
+        Files.writeString(statePath, "state");
+        Path stateAlias = createFileSymlinkOrSkip(projectRoot.resolve("state-report.xml"), statePath);
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(stateAlias.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsFileSymlinkAliasToInternalExecutionMarkerPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/execution.marker");
+        Files.createDirectories(markerPath.getParent());
+        Files.writeString(markerPath, "ok");
+        Path markerAlias = createFileSymlinkOrSkip(projectRoot.resolve("marker-report.xml"), markerPath);
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(markerAlias.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsHardLinkAliasToInternalStatePath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.path");
+        Files.createDirectories(statePath.getParent());
+        Files.writeString(statePath, "state");
+        Path stateAlias = createHardLinkOrSkip(projectRoot.resolve("state-report.xml"), statePath);
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(stateAlias.toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
@@ -914,6 +959,24 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void rememberedStatePreservesNewlinesInStoredPath() throws Exception {
+        assumeTrue(!isWindows(), "Windows does not support filenames containing newlines");
+        Path projectRoot = tempDir.toRealPath();
+        Path output = projectRoot.resolve("report\nname.json");
+        Path statePath = projectRoot.resolve(".gradle/crap-java/root/crap-java-check/primary-output.path");
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+        task.getFormat().set("json");
+        task.getOutput().fileValue(output.toFile());
+
+        task.runCheck();
+
+        List<String> lines = Files.readAllLines(statePath);
+        assertEquals(2, lines.size());
+        assertTrue(lines.get(0).startsWith("path-base64\t"));
+        assertEquals(output.toAbsolutePath().normalize(), rememberedReportPath(task, statePath));
+    }
+
+    @Test
     void disabledCustomTaskDoesNotDeleteUnownedDefaultSidecars() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -993,6 +1056,15 @@ class CrapJavaGradlePluginTest {
         }
     }
 
+    private Path createFileSymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "File symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
+    }
+
     private CrapJavaCheckTask newCheckTask(Path projectRoot) {
         return newCheckTask(projectRoot, "crap-java-check");
     }
@@ -1067,16 +1139,6 @@ class CrapJavaGradlePluginTest {
         Method path = rememberedReport.getClass().getDeclaredMethod("path");
         path.setAccessible(true);
         return (Path) path.invoke(rememberedReport);
-    }
-
-    private boolean isCaseInsensitiveFileSystem(Path directory) throws Exception {
-        Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
-        try {
-            Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
-            return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
-        } finally {
-            Files.deleteIfExists(probe);
-        }
     }
 
     private boolean isWindows() {
