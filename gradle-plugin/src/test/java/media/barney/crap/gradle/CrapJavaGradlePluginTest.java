@@ -532,7 +532,7 @@ class CrapJavaGradlePluginTest {
 
         assertThrows(Exception.class, secondTask::runCheck);
         assertTrue(Files.exists(oldOutput));
-        assertTrue(Files.exists(replacementOutput));
+        assertFalse(Files.exists(replacementOutput));
 
         CrapJavaCheckTask thirdTask = newCheckTask(projectRoot);
         thirdTask.getFormat().set("json");

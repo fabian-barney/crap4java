@@ -400,11 +400,31 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             ReportSnapshot outputBefore,
             ReportSnapshot junitBefore
     ) throws Exception {
-        if (shouldRememberChangedReport(currentOutputPath, outputBefore, rememberedOutputPath())) {
+        RememberedReport rememberedOutput = rememberedOutputPath();
+        RememberedReport rememberedJunitReport = rememberedJunitReportPath();
+        deleteNewUnrememberedChangedReport(currentOutputPath, outputBefore, rememberedOutput);
+        deleteNewUnrememberedChangedReport(currentJunitReportPath, junitBefore, rememberedJunitReport);
+        if (shouldRememberChangedReport(currentOutputPath, outputBefore, rememberedOutput)) {
             rememberOutputPath(currentOutputPath);
         }
-        if (shouldRememberChangedReport(currentJunitReportPath, junitBefore, rememberedJunitReportPath())) {
+        if (shouldRememberChangedReport(currentJunitReportPath, junitBefore, rememberedJunitReport)) {
             rememberJunitReportPath(currentJunitReportPath);
+        }
+    }
+
+    private void deleteNewUnrememberedChangedReport(
+            Path reportPath,
+            ReportSnapshot before,
+            RememberedReport rememberedReport
+    ) throws IOException {
+        if (rememberedReport == null || before.exists()) {
+            return;
+        }
+        if (isCurrentRememberedPath(rememberedReport, reportPath)) {
+            return;
+        }
+        if (reportChanged(reportPath, before)) {
+            Files.deleteIfExists(reportPath);
         }
     }
 
