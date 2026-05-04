@@ -19,6 +19,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,8 +37,8 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private final Provider<RegularFile> defaultJunitReport;
     private final Provider<RegularFile> executionMarker;
-    private final RegularFile junitReportState;
-    private final RegularFile outputState;
+    private final RegularFileProperty junitReportState;
+    private final RegularFileProperty outputState;
     private final Provider<String> absentString;
     private final Provider<RegularFile> absentRegularFile;
 
@@ -49,10 +50,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 .flatMap(path -> getProject().getLayout().getBuildDirectory().file(path));
         executionMarker = getProject().getLayout().getBuildDirectory()
                 .file("tmp/crap-java/" + getName() + "/execution.marker");
-        junitReportState = getProject().getLayout().getProjectDirectory()
-                .file(".gradle/crap-java/" + getName() + "/junit-report.path");
-        outputState = getProject().getLayout().getProjectDirectory()
-                .file(".gradle/crap-java/" + getName() + "/primary-output.path");
+        junitReportState = getProject().getObjects().fileProperty();
+        junitReportState.fileValue(localStateFile("junit-report.path"));
+        outputState = getProject().getObjects().fileProperty();
+        outputState.fileValue(localStateFile("primary-output.path"));
         getThreshold().convention(Main.DEFAULT_THRESHOLD);
         getAgent().convention(false);
         getFormat().convention(getAgent().map(agent -> agent ? "toon" : "none"));
@@ -206,16 +207,16 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private boolean isExecutionMarkerPath(Path reportPath) {
-        return reportPath.startsWith(executionMarkerPath().getParent().getParent())
-                && "execution.marker".equals(reportPath.getFileName().toString());
+        return "execution.marker".equals(reportPath.getFileName().toString())
+                && normalizedPath(reportPath).contains("/tmp/crap-java/");
     }
 
     private boolean isRememberedPathStateFile(Path reportPath) {
-        return reportPath.startsWith(rememberedStateRoot()) && hasRememberedStateFileName(reportPath);
+        return hasRememberedStateFileName(reportPath) && normalizedPath(reportPath).contains("/crap-java/");
     }
 
-    private Path rememberedStateRoot() {
-        return outputStatePath().getParent().getParent();
+    private String normalizedPath(Path path) {
+        return path.normalize().toString().replace('\\', '/');
     }
 
     private boolean hasRememberedStateFileName(Path reportPath) {
@@ -330,7 +331,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private Path outputStatePath() {
-        return outputState.getAsFile()
+        return outputState.get().getAsFile()
                 .toPath()
                 .toAbsolutePath()
                 .normalize();
@@ -411,10 +412,35 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private Path junitReportStatePath() {
-        return junitReportState.getAsFile()
+        return junitReportState.get().getAsFile()
                 .toPath()
                 .toAbsolutePath()
                 .normalize();
+    }
+
+    private File localStateFile(String fileName) {
+        return projectCacheRoot()
+                .resolve("crap-java")
+                .resolve(projectStateName())
+                .resolve(getName())
+                .resolve(fileName)
+                .toFile();
+    }
+
+    private Path projectCacheRoot() {
+        File projectCacheDir = getProject().getGradle().getStartParameter().getProjectCacheDir();
+        if (projectCacheDir != null) {
+            return projectCacheDir.toPath().toAbsolutePath().normalize();
+        }
+        return getProject().getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
+    }
+
+    private String projectStateName() {
+        String projectPath = getProject().getPath();
+        if (":".equals(projectPath)) {
+            return "root";
+        }
+        return projectPath.substring(1).replace(':', '-');
     }
 
     private record RememberedReport(Path path, String ownership, Path ownerLink) {

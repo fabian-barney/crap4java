@@ -360,6 +360,22 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void rememberedStateUsesGradleProjectCacheDir() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path projectCacheDir = projectRoot.resolve("custom-project-cache");
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        project.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+
+        task.runCheck();
+
+        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/root/crap-java-check/junit-report.path")));
+        assertFalse(Files.exists(projectRoot.resolve(".gradle/crap-java/root/crap-java-check/junit-report.path")));
+    }
+
+    @Test
     void disabledCustomTaskDoesNotDeleteBuiltInTaskSidecar() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
