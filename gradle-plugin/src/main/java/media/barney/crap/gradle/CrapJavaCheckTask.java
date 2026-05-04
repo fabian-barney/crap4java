@@ -3,6 +3,7 @@ package media.barney.crap.gradle;
 import media.barney.crap.core.Main;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFile;
@@ -21,8 +22,11 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -149,9 +153,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                         configuredJunitReportPath,
                         getThreshold().get()
                 );
-                cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
-                rememberOutputPath(configuredOutputPath);
-                rememberJunitReportPath(configuredJunitReportPath);
+                updateReportState(configuredOutputPath, configuredJunitReportPath);
                 if (exit != 0) {
                     throw new GradleException("crap-java-check failed with exit " + exit);
                 }
@@ -174,9 +176,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                     configuredJunitReportPath,
                     getThreshold().get()
             );
-            cleanupStaleReports(configuredOutputPath, configuredJunitReportPath);
-            rememberOutputPath(configuredOutputPath);
-            rememberJunitReportPath(configuredJunitReportPath);
+            updateReportState(configuredOutputPath, configuredJunitReportPath);
             if (exit != 0) {
                 throw new GradleException("crap-java-check failed with exit " + exit);
             }
@@ -208,15 +208,25 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private boolean isExecutionMarkerPath(Path reportPath) {
         return "execution.marker".equals(reportPath.getFileName().toString())
-                && normalizedPath(reportPath).contains("/tmp/crap-java/");
+                && internalExecutionMarkerRoots().stream().anyMatch(reportPath::startsWith);
     }
 
     private boolean isRememberedPathStateFile(Path reportPath) {
-        return hasRememberedStateFileName(reportPath) && normalizedPath(reportPath).contains("/crap-java/");
+        return hasRememberedStateFileName(reportPath)
+                && internalRememberedStateRoots().stream().anyMatch(reportPath::startsWith);
     }
 
-    private String normalizedPath(Path path) {
-        return path.normalize().toString().replace('\\', '/');
+    private List<Path> internalExecutionMarkerRoots() {
+        return getProject().getRootProject().getAllprojects().stream()
+                .map(project -> project.getLayout().getBuildDirectory().dir("tmp/crap-java").get())
+                .map(directory -> directory.getAsFile().toPath().toAbsolutePath().normalize())
+                .toList();
+    }
+
+    private List<Path> internalRememberedStateRoots() {
+        return getProject().getRootProject().getAllprojects().stream()
+                .map(project -> projectCacheRoot(project).resolve("crap-java").resolve(projectStateName(project)))
+                .toList();
     }
 
     private boolean hasRememberedStateFileName(Path reportPath) {
@@ -231,6 +241,21 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         deleteMovedOutput(currentOutputPath);
         deleteMovedJunitReport(currentJunitReportPath);
         deleteDisabledJunitReport();
+    }
+
+    private void updateReportState(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
+        Path lockPath = stateLockPath();
+        Files.createDirectories(lockPath.getParent());
+        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             FileLock ignored = channel.lock()) {
+            cleanupStaleReports(currentOutputPath, currentJunitReportPath);
+            rememberOutputPath(currentOutputPath);
+            rememberJunitReportPath(currentJunitReportPath);
+        }
+    }
+
+    private Path stateLockPath() {
+        return outputStatePath().resolveSibling("state.lock");
     }
 
     private void writeExecutionMarker() throws Exception {
@@ -443,24 +468,24 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private File localStateFile(String fileName) {
-        return projectCacheRoot()
+        return projectCacheRoot(getProject())
                 .resolve("crap-java")
-                .resolve(projectStateName())
+                .resolve(projectStateName(getProject()))
                 .resolve(getName())
                 .resolve(fileName)
                 .toFile();
     }
 
-    private Path projectCacheRoot() {
-        File projectCacheDir = getProject().getGradle().getStartParameter().getProjectCacheDir();
+    private Path projectCacheRoot(Project project) {
+        File projectCacheDir = project.getGradle().getStartParameter().getProjectCacheDir();
         if (projectCacheDir != null) {
             return projectCacheDir.toPath().toAbsolutePath().normalize();
         }
-        return getProject().getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
+        return project.getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
     }
 
-    private String projectStateName() {
-        String projectPath = getProject().getPath();
+    private String projectStateName(Project project) {
+        String projectPath = project.getPath();
         if (":".equals(projectPath)) {
             return "root";
         }

@@ -49,11 +49,15 @@ record ReportOptions(
     private static boolean sameParentAndFileName(Path first, Path second) throws IOException {
         Path firstParent = first.getParent();
         Path secondParent = second.getParent();
-        return first.getFileName().equals(second.getFileName())
+        return sameFileName(first, second)
                 && firstParent != null
                 && secondParent != null
                 && Files.exists(firstParent)
                 && Files.exists(secondParent)
                 && Files.isSameFile(firstParent, secondParent);
+    }
+
+    private static boolean sameFileName(Path first, Path second) {
+        return first.getFileName().toString().equalsIgnoreCase(second.getFileName().toString());
     }
 }

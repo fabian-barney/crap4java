@@ -542,6 +542,31 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsCaseOnlyPrimaryAndJunitReportPathCollision() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path report = tempDir.resolve("target/crap-java/report.xml");
+        Path caseVariant = tempDir.resolve("target/crap-java/REPORT.XML");
+        Files.createDirectories(report.getParent());
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                caseVariant,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageAnalyzesPreResolvedModules() throws Exception {
         Path moduleRoot = tempDir.resolve("app");
         Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");

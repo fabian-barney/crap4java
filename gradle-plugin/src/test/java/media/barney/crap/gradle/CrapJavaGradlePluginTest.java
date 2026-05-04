@@ -359,7 +359,7 @@ class CrapJavaGradlePluginTest {
         assertTrue(Files.exists(junitReport));
 
         task.getJunit().set(false);
-        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.path").toFile());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.path").toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
@@ -374,7 +374,7 @@ class CrapJavaGradlePluginTest {
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
-        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.path").toFile());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.path").toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
@@ -388,7 +388,7 @@ class CrapJavaGradlePluginTest {
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
-        task.getJunitReport().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/junit-report.path").toFile());
+        task.getJunitReport().fileValue(projectRoot.resolve(".gradle/crap-java/root/other-task/junit-report.path").toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
@@ -402,11 +402,49 @@ class CrapJavaGradlePluginTest {
         CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
-        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/other-task/primary-output.owner").toFile());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/root/other-task/primary-output.owner").toFile());
 
         GradleException exception = assertThrows(GradleException.class, task::runCheck);
 
         assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsSubprojectInternalExecutionMarkerPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Files.createDirectories(projectRoot.resolve("sub"));
+        Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Project subproject = ProjectBuilder.builder()
+                .withName("sub")
+                .withParent(root)
+                .withProjectDir(projectRoot.resolve("sub").toFile())
+                .build();
+        CrapJavaCheckTask task = root.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(subproject.getLayout().getBuildDirectory().get().getAsFile().toPath()
+                .resolve("tmp/crap-java/crap-java-check/execution.marker")
+                .toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckAllowsNormalReportPathWithInternalFileName() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path output = projectRoot.resolve("reports/crap-java/primary-output.path");
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getFormat().set("json");
+        task.getOutput().fileValue(output.toFile());
+
+        task.runCheck();
+
+        assertTrue(Files.exists(output));
     }
 
     @Test
