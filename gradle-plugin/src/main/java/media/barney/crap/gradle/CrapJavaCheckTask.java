@@ -30,9 +30,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -802,9 +805,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private File localStateFile(String fileName) {
-        return projectCacheRoot(getProject())
-                .resolve("crap-java")
-                .resolve(projectStateName(getProject()))
+        return localStateRoot(getProject())
                 .resolve(getName())
                 .resolve(fileName)
                 .toFile();
@@ -817,12 +818,35 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 .toFile();
     }
 
+    private Path localStateRoot(Project project) {
+        Path stateRoot = projectCacheRoot(project).resolve("crap-java");
+        if (hasCustomProjectCacheDir(project)) {
+            stateRoot = stateRoot.resolve(rootProjectStateName(project));
+        }
+        return stateRoot.resolve(projectStateName(project));
+    }
+
     private Path projectCacheRoot(Project project) {
         File projectCacheDir = project.getGradle().getStartParameter().getProjectCacheDir();
         if (projectCacheDir != null) {
             return projectCacheDir.toPath().toAbsolutePath().normalize();
         }
         return project.getRootProject().getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
+    }
+
+    private boolean hasCustomProjectCacheDir(Project project) {
+        return project.getGradle().getStartParameter().getProjectCacheDir() != null;
+    }
+
+    private String rootProjectStateName(Project project) {
+        String rootPath = project.getRootProject().getProjectDir().toPath().toAbsolutePath().normalize().toString();
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(rootPath.getBytes(StandardCharsets.UTF_8));
+            return "workspace-" + HexFormat.of().formatHex(hash, 0, 12);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     private String projectStateName(Project project) {

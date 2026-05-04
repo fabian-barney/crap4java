@@ -683,6 +683,32 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsDirectoryPrimaryReportPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path outputDirectory = projectRoot.resolve("reports/output.json");
+        Files.createDirectories(outputDirectory);
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+        task.getOutput().fileValue(outputDirectory.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a directory"));
+    }
+
+    @Test
+    void runCheckRejectsDirectoryJunitReportPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path junitDirectory = projectRoot.resolve("reports/TEST-crap-java.xml");
+        Files.createDirectories(junitDirectory);
+        CrapJavaCheckTask task = newCheckTask(projectRoot);
+        task.getJunitReport().fileValue(junitDirectory.toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("junitReport must not point to a directory"));
+    }
+
+    @Test
     void runCheckRejectsInternalExecutionMarkerRootPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Path markerPath = projectRoot.resolve("build/tmp/crap-java/crap-java-check/report.xml");
@@ -899,8 +925,35 @@ class CrapJavaGradlePluginTest {
 
         task.runCheck();
 
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/root/crap-java-check/junit-report.path")));
+        Path statePath = junitReportStatePath(task);
+        assertTrue(Files.exists(statePath));
+        assertTrue(statePath.startsWith(projectCacheDir.resolve("crap-java")));
+        assertTrue(statePath.getParent().getParent().getParent().getFileName().toString().startsWith("workspace-"));
         assertFalse(Files.exists(projectRoot.resolve(".gradle/crap-java/root/crap-java-check/junit-report.path")));
+    }
+
+    @Test
+    void rememberedStateNamespacesSharedCustomProjectCacheByRootProject() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path sharedProjectCacheDir = projectRoot.resolve("shared-project-cache");
+        Path firstRoot = projectRoot.resolve("first");
+        Path secondRoot = projectRoot.resolve("second");
+        Files.createDirectories(firstRoot);
+        Files.createDirectories(secondRoot);
+        assumeHardLinksAvailable(projectRoot);
+        CrapJavaCheckTask firstTask = newCheckTask(firstRoot, "crap-java-check", sharedProjectCacheDir);
+        CrapJavaCheckTask secondTask = newCheckTask(secondRoot, "crap-java-check", sharedProjectCacheDir);
+
+        firstTask.runCheck();
+        secondTask.runCheck();
+
+        Path firstStatePath = junitReportStatePath(firstTask);
+        Path secondStatePath = junitReportStatePath(secondTask);
+        assertTrue(Files.exists(firstStatePath));
+        assertTrue(Files.exists(secondStatePath));
+        assertFalse(firstStatePath.equals(secondStatePath));
+        assertFalse(firstStatePath.getParent().getParent().getParent()
+                .equals(secondStatePath.getParent().getParent().getParent()));
     }
 
     @Test
@@ -982,10 +1035,13 @@ class CrapJavaGradlePluginTest {
         nestedTask.runCheck();
         rootNamedTask.runCheck();
 
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aa-b/crap-java-check/junit-report.path")));
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aa%3Ab/crap-java-check/junit-report.path")));
-        assertTrue(Files.exists(projectCacheDir.resolve("crap-java/%3Aroot/crap-java-check/junit-report.path")));
-        assertFalse(Files.exists(projectCacheDir.resolve("crap-java/root/crap-java-check/junit-report.path")));
+        Path stateNamespace = junitReportStatePath(dashTask).getParent().getParent().getParent();
+        assertTrue(stateNamespace.startsWith(projectCacheDir.resolve("crap-java")));
+        assertTrue(stateNamespace.getFileName().toString().startsWith("workspace-"));
+        assertTrue(Files.exists(stateNamespace.resolve("%3Aa-b/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(stateNamespace.resolve("%3Aa%3Ab/crap-java-check/junit-report.path")));
+        assertTrue(Files.exists(stateNamespace.resolve("%3Aroot/crap-java-check/junit-report.path")));
+        assertFalse(Files.exists(stateNamespace.resolve("root/crap-java-check/junit-report.path")));
     }
 
     @Test
@@ -1127,6 +1183,16 @@ class CrapJavaGradlePluginTest {
 
     private CrapJavaCheckTask newCheckTask(Path projectRoot, String name) {
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        return newCheckTask(project, projectRoot, name);
+    }
+
+    private CrapJavaCheckTask newCheckTask(Path projectRoot, String name, Path projectCacheDir) {
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        project.getGradle().getStartParameter().setProjectCacheDir(projectCacheDir.toFile());
+        return newCheckTask(project, projectRoot, name);
+    }
+
+    private CrapJavaCheckTask newCheckTask(Project project, Path projectRoot, String name) {
         CrapJavaCheckTask task = project.getTasks().register(name, CrapJavaCheckTask.class).get();
         task.getAnalysisRoot().fileValue(projectRoot.toFile());
         task.getModuleCoverageReports().set(Map.of());
@@ -1185,6 +1251,12 @@ class CrapJavaGradlePluginTest {
         Method stateLockPath = CrapJavaCheckTask.class.getDeclaredMethod("stateLockPath");
         stateLockPath.setAccessible(true);
         return (Path) stateLockPath.invoke(task);
+    }
+
+    private Path junitReportStatePath(CrapJavaCheckTask task) throws Exception {
+        Method junitReportStatePath = CrapJavaCheckTask.class.getDeclaredMethod("junitReportStatePath");
+        junitReportStatePath.setAccessible(true);
+        return (Path) junitReportStatePath.invoke(task);
     }
 
     private Path rememberedReportPath(CrapJavaCheckTask task, Path statePath) throws Exception {
