@@ -5,6 +5,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MainTest {
 
@@ -569,6 +571,33 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageRejectsSymlinkedParentBeforeLeafExists() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path realRoot = tempDir.resolve("real");
+        Files.createDirectories(realRoot);
+        Path aliasRoot = createDirectorySymlinkOrSkip(tempDir.resolve("alias"), realRoot);
+        Path report = realRoot.resolve("reports/report.xml");
+        Path aliasReport = aliasRoot.resolve("reports/report.xml");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(new ByteArrayOutputStream()),
+                new PrintStream(new ByteArrayOutputStream()),
+                "json",
+                false,
+                false,
+                report,
+                aliasReport,
+                8.0
+        ));
+
+        assertEquals("output and junitReport must not point to the same file", thrown.getMessage());
+    }
+
+    @Test
     void runWithExistingCoverageHandlesCaseOnlyPrimaryAndJunitReportPathCollision() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
@@ -771,6 +800,15 @@ class MainTest {
             return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
         } finally {
             Files.deleteIfExists(probe);
+        }
+    }
+
+    private Path createDirectorySymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
+            return link;
         }
     }
 }

@@ -573,7 +573,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (projectCacheDir != null) {
             return projectCacheDir.toPath().toAbsolutePath().normalize();
         }
-        return project.getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
+        return project.getRootProject().getProjectDir().toPath().resolve(".gradle").toAbsolutePath().normalize();
     }
 
     private String projectStateName(Project project) {

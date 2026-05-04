@@ -68,7 +68,34 @@ record ReportOptions(
 
     private static boolean sameAliasedParent(Path firstParent, Path secondParent) throws IOException {
         return sameExistingFile(firstParent, secondParent)
+                || sameRealPath(firstParent, secondParent)
                 || sameCaseInsensitivePath(firstParent, secondParent);
+    }
+
+    private static boolean sameRealPath(Path first, Path second) {
+        Path firstRealPath = realPathForComparison(first);
+        Path secondRealPath = realPathForComparison(second);
+        return firstRealPath != null && firstRealPath.equals(secondRealPath);
+    }
+
+    private static @Nullable Path realPathForComparison(Path path) {
+        Path normalized = path.toAbsolutePath().normalize();
+        try {
+            if (Files.exists(normalized)) {
+                return normalized.toRealPath();
+            }
+            Path existing = nearestExistingPath(normalized);
+            if (existing != null) {
+                return existing.toRealPath().resolve(existing.relativize(normalized)).normalize();
+            }
+        } catch (IOException | SecurityException exception) {
+            return null;
+        }
+        return null;
+    }
+
+    private static @Nullable Path nearestExistingPath(Path path) {
+        return ancestors(path).filter(Files::exists).findFirst().orElse(null);
     }
 
     private static boolean sameFileName(Path first, Path second, @Nullable Path parent) {

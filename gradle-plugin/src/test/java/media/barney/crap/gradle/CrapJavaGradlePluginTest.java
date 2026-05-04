@@ -523,6 +523,26 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsSubprojectInternalStatePathInRootCache() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Files.createDirectories(projectRoot.resolve("sub"));
+        Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        ProjectBuilder.builder()
+                .withName("sub")
+                .withParent(root)
+                .withProjectDir(projectRoot.resolve("sub").toFile())
+                .build();
+        CrapJavaCheckTask task = root.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(projectRoot.resolve(".gradle/crap-java/sub/crap-java-check/state.lock").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
     void runCheckAllowsNormalReportPathWithInternalFileName() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
@@ -552,6 +572,27 @@ class CrapJavaGradlePluginTest {
 
         assertTrue(Files.exists(projectCacheDir.resolve("crap-java/root/crap-java-check/junit-report.path")));
         assertFalse(Files.exists(projectRoot.resolve(".gradle/crap-java/root/crap-java-check/junit-report.path")));
+    }
+
+    @Test
+    void rememberedStateFallsBackToRootProjectGradleDirForSubprojects() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path subprojectRoot = projectRoot.resolve("sub");
+        Files.createDirectories(subprojectRoot);
+        Project root = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Project subproject = ProjectBuilder.builder()
+                .withName("sub")
+                .withParent(root)
+                .withProjectDir(subprojectRoot.toFile())
+                .build();
+        CrapJavaCheckTask task = subproject.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+
+        task.runCheck();
+
+        assertTrue(Files.exists(projectRoot.resolve(".gradle/crap-java/sub/crap-java-check/junit-report.path")));
+        assertFalse(Files.exists(subprojectRoot.resolve(".gradle/crap-java/sub/crap-java-check/junit-report.path")));
     }
 
     @Test
