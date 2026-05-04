@@ -19,20 +19,20 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public abstract class CrapJavaCheckTask extends DefaultTask {
+
+    private static final String LINK_OWNERSHIP = "link";
 
     private final Provider<RegularFile> defaultJunitReport;
     private final Provider<RegularFile> executionMarker;
@@ -254,7 +254,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private void deleteOutputStateIfUnset(Path currentPath) throws Exception {
         if (currentPath == null) {
-            Files.deleteIfExists(outputStatePath());
+            deleteReportState(outputStatePath());
         }
     }
 
@@ -287,7 +287,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             return;
         }
         deleteRememberedReport(rememberedJunitReportPath());
-        Files.deleteIfExists(junitReportStatePath());
+        deleteReportState(junitReportStatePath());
     }
 
     private void deleteRememberedReport(RememberedReport rememberedReport) throws Exception {
@@ -304,7 +304,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!Files.isRegularFile(rememberedReport.path())) {
             return false;
         }
-        return rememberedReport.fingerprint().equals(ownershipFingerprint(rememberedReport.path()));
+        return rememberedReport.ownership().startsWith(LINK_OWNERSHIP + "\t")
+                && Files.exists(rememberedReport.ownerLink())
+                && Files.isSameFile(rememberedReport.path(), rememberedReport.ownerLink())
+                && rememberedReport.ownership().equals(ownership(rememberedReport.path()));
     }
 
     private String defaultJunitReportRelativePath() {
@@ -342,7 +345,43 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private void rememberReportPath(Path statePath, Path reportPath) throws Exception {
         Files.createDirectories(statePath.getParent());
-        Files.writeString(statePath, reportPath + "\n" + ownershipFingerprint(reportPath) + "\n");
+        Path ownerLink = ownerLinkPath(statePath);
+        Files.deleteIfExists(ownerLink);
+        String ownership = ownership(reportPath, ownerLink);
+        if (ownership.isBlank()) {
+            Files.deleteIfExists(statePath);
+            return;
+        }
+        Files.writeString(statePath, reportPath + "\n" + ownership + "\n");
+    }
+
+    private String ownership(Path reportPath, Path ownerLink) throws Exception {
+        try {
+            Files.createLink(ownerLink, reportPath);
+            return ownership(reportPath);
+        } catch (IOException | SecurityException | UnsupportedOperationException exception) {
+            return "";
+        }
+    }
+
+    private String ownership(Path reportPath) throws Exception {
+        BasicFileAttributes attributes = Files.readAttributes(reportPath, BasicFileAttributes.class);
+        return LINK_OWNERSHIP + "\t"
+                + attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS) + "\t"
+                + attributes.size();
+    }
+
+    private void deleteReportState(Path statePath) throws Exception {
+        Files.deleteIfExists(ownerLinkPath(statePath));
+        Files.deleteIfExists(statePath);
+    }
+
+    private Path ownerLinkPath(Path statePath) {
+        String fileName = statePath.getFileName().toString();
+        String ownerFileName = fileName.endsWith(".path")
+                ? fileName.substring(0, fileName.length() - ".path".length()) + ".owner"
+                : fileName + ".owner";
+        return statePath.resolveSibling(ownerFileName);
     }
 
     private RememberedReport rememberedJunitReportPath() throws Exception {
@@ -353,45 +392,22 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (!Files.isRegularFile(statePath)) {
             return null;
         }
-        return parseRememberedReport(Files.readAllLines(statePath));
+        return parseRememberedReport(statePath, Files.readAllLines(statePath));
     }
 
-    private RememberedReport parseRememberedReport(List<String> lines) {
+    private RememberedReport parseRememberedReport(Path statePath, List<String> lines) {
         if (!hasRememberedReport(lines)) {
             return null;
         }
-        return new RememberedReport(Path.of(lines.get(0).trim()).toAbsolutePath().normalize(), lines.get(1));
+        return new RememberedReport(
+                Path.of(lines.get(0).trim()).toAbsolutePath().normalize(),
+                lines.get(1),
+                ownerLinkPath(statePath)
+        );
     }
 
     private boolean hasRememberedReport(List<String> lines) {
         return lines.size() >= 2 && !lines.get(0).isBlank() && !lines.get(1).isBlank();
-    }
-
-    private String ownershipFingerprint(Path path) throws Exception {
-        BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class);
-        return fileKey(attributes) + "\t"
-                + attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS) + "\t"
-                + attributes.size() + "\t"
-                + contentHash(path);
-    }
-
-    private String fileKey(BasicFileAttributes attributes) {
-        Object fileKey = attributes.fileKey();
-        if (fileKey == null) {
-            return "";
-        }
-        return fileKey.toString().replace('\n', ' ').replace('\r', ' ').replace('\t', ' ');
-    }
-
-    private String contentHash(Path path) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (DigestInputStream input = new DigestInputStream(Files.newInputStream(path), digest)) {
-            byte[] buffer = new byte[8192];
-            while (input.read(buffer) != -1) {
-                // Read the full stream so DigestInputStream can update the digest.
-            }
-        }
-        return HexFormat.of().formatHex(digest.digest());
     }
 
     private Path junitReportStatePath() {
@@ -401,7 +417,7 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 .normalize();
     }
 
-    private record RememberedReport(Path path, String fingerprint) {
+    private record RememberedReport(Path path, String ownership, Path ownerLink) {
     }
 
     private List<Main.ResolvedCoverageModule> resolvedModules(List<Path> sourceFiles) {
