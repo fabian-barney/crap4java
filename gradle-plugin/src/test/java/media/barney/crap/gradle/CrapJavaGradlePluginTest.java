@@ -7,6 +7,7 @@ import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class CrapJavaGradlePluginTest {
 
@@ -424,6 +426,40 @@ class CrapJavaGradlePluginTest {
     }
 
     @Test
+    void runCheckRejectsSymlinkedInternalStatePath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path stateRoot = projectRoot.resolve(".gradle/crap-java/root/other-task");
+        Files.createDirectories(stateRoot);
+        Path stateAlias = createDirectorySymlinkOrSkip(projectRoot.resolve("state-alias"), stateRoot);
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(stateAlias.resolve("primary-output.path").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
+    void runCheckRejectsSymlinkedInternalExecutionMarkerPath() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Path markerRoot = projectRoot.resolve("build/tmp/crap-java");
+        Files.createDirectories(markerRoot.resolve("crap-java-check"));
+        Path markerAlias = createDirectorySymlinkOrSkip(projectRoot.resolve("marker-alias"), markerRoot);
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getModuleCoverageReports().set(Map.of());
+        task.getOutput().fileValue(markerAlias.resolve("crap-java-check/execution.marker").toFile());
+
+        GradleException exception = assertThrows(GradleException.class, task::runCheck);
+
+        assertTrue(exception.getMessage().contains("output must not point to a crap-java internal task file"));
+    }
+
+    @Test
     void runCheckRejectsSubprojectInternalExecutionMarkerPath() throws Exception {
         Path projectRoot = tempDir.toRealPath();
         Files.createDirectories(projectRoot.resolve("sub"));
@@ -554,6 +590,15 @@ class CrapJavaGradlePluginTest {
     @Test
     void modulePathDoesNotMatchPartialPathSegment() {
         assertFalse(CrapJavaCheckTask.matchesModulePath("application/src/main/java/demo/Sample.java", "app"));
+    }
+
+    private Path createDirectorySymlinkOrSkip(Path link, Path target) throws Exception {
+        try {
+            return Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | IOException | SecurityException exception) {
+            assumeTrue(false, "Directory symbolic links are unavailable: " + exception.getMessage());
+            return link;
+        }
     }
 }
 

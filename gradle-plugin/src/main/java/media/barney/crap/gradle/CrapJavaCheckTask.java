@@ -208,12 +208,14 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     private boolean isExecutionMarkerPath(Path reportPath) {
         return "execution.marker".equals(reportPath.getFileName().toString())
-                && internalExecutionMarkerRoots().stream().anyMatch(reportPath::startsWith);
+                && internalExecutionMarkerRoots().stream()
+                .anyMatch(internalRoot -> isUnderInternalRoot(reportPath, internalRoot));
     }
 
     private boolean isRememberedPathStateFile(Path reportPath) {
         return hasRememberedStateFileName(reportPath)
-                && internalRememberedStateRoots().stream().anyMatch(reportPath::startsWith);
+                && internalRememberedStateRoots().stream()
+                .anyMatch(internalRoot -> isUnderInternalRoot(reportPath, internalRoot));
     }
 
     private List<Path> internalExecutionMarkerRoots() {
@@ -236,6 +238,43 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                 || "primary-output.owner".equals(fileName)
                 || "junit-report.owner".equals(fileName)
                 || "state.lock".equals(fileName);
+    }
+
+    private boolean isUnderInternalRoot(Path reportPath, Path internalRoot) {
+        return reportPath.startsWith(internalRoot) || realPathStartsWith(reportPath, internalRoot);
+    }
+
+    private boolean realPathStartsWith(Path reportPath, Path internalRoot) {
+        Path realReportPath = realPathForComparison(reportPath);
+        Path realInternalRoot = realPathForComparison(internalRoot);
+        return realReportPath != null && realInternalRoot != null && realReportPath.startsWith(realInternalRoot);
+    }
+
+    private Path realPathForComparison(Path path) {
+        Path normalized = path.toAbsolutePath().normalize();
+        try {
+            if (Files.exists(normalized)) {
+                return normalized.toRealPath();
+            }
+            Path existing = nearestExistingPath(normalized);
+            if (existing != null) {
+                return existing.toRealPath().resolve(existing.relativize(normalized)).normalize();
+            }
+        } catch (IOException | SecurityException exception) {
+            return null;
+        }
+        return null;
+    }
+
+    private Path nearestExistingPath(Path path) {
+        Path current = path;
+        while (current != null) {
+            if (Files.exists(current)) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
@@ -411,6 +450,9 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
             Files.createLink(ownerLink, reportPath);
             return ownership(reportPath);
         } catch (IOException | SecurityException | UnsupportedOperationException exception) {
+            getLogger().warn(
+                    "crap-java could not remember ownership for {}; stale cleanup for that report path is disabled.",
+                    reportPath);
             return "";
         }
     }

@@ -53,16 +53,12 @@ public final class Main {
                                               PrintStream err,
                                               Path junitReportPath,
                                               double threshold) throws Exception {
-        return runWithExistingCoverage(
+        return runResolvedModules(
                 modules,
-                reportRoot,
+                reportRoot.toAbsolutePath().normalize(),
                 out,
                 err,
-                ReportFormat.TEXT.name(),
-                false,
-                false,
-                null,
-                junitReportPath,
+                ReportOptions.textWithOptionalJunit(junitReportPath),
                 threshold
         );
     }
@@ -83,13 +79,13 @@ public final class Main {
                 normalizedReportRoot,
                 out,
                 err,
-                new ReportOptions(
-                        ReportFormat.parse(reportFormat),
+                reportOptionsRelativeToRoot(
+                        normalizedReportRoot,
+                        reportFormat,
                         failuresOnly,
                         omitRedundancy,
-                        normalize(normalizedReportRoot, outputPath),
-                        normalize(normalizedReportRoot, junitReportPath)
-                ),
+                        outputPath,
+                        junitReportPath),
                 threshold
         );
     }
@@ -177,6 +173,21 @@ public final class Main {
         }
         Path normalized = path.normalize();
         return normalized.isAbsolute() ? normalized : root.resolve(normalized).normalize();
+    }
+
+    private static ReportOptions reportOptionsRelativeToRoot(Path root,
+                                                             String reportFormat,
+                                                             boolean failuresOnly,
+                                                             boolean omitRedundancy,
+                                                             @Nullable Path outputPath,
+                                                             @Nullable Path junitReportPath) {
+        return new ReportOptions(
+                ReportFormat.parse(reportFormat),
+                failuresOnly,
+                omitRedundancy,
+                normalize(root, outputPath),
+                normalize(root, junitReportPath)
+        );
     }
 
     private static Path commonRoot(List<ResolvedCoverageModule> modules) {

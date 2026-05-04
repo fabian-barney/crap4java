@@ -495,6 +495,30 @@ class MainTest {
     }
 
     @Test
+    void runWithExistingCoverageLegacyJunitOverloadKeepsRelativePathAgainstWorkingDirectory() throws Exception {
+        writeMixedCoverageSample();
+        Path source = tempDir.resolve("src/main/java/demo/Sample.java");
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        Path junitReport = tempDir.resolve("legacy-relative-junit.xml").toAbsolutePath().normalize();
+        Path relativeJunitReport = Path.of("").toAbsolutePath().normalize().relativize(junitReport);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = Main.runWithExistingCoverage(
+                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                relativeJunitReport,
+                8.0
+        );
+
+        assertEquals(2, exit);
+        assertTrue(Files.exists(junitReport));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+    }
+
+    @Test
     void runWithExistingCoverageRejectsSharedPrimaryAndJunitReportPath() throws Exception {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
@@ -549,8 +573,8 @@ class MainTest {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
         Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
-        Path report = tempDir.resolve("target/crap-java/report.xml");
-        Path caseVariant = tempDir.resolve("target/crap-java/REPORT.XML");
+        Path report = tempDir.resolve("fresh/reports/report.xml");
+        Path caseVariant = tempDir.resolve("FRESH/REPORTS/REPORT.XML");
 
         Executable run = () -> Main.runWithExistingCoverage(
                 List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),

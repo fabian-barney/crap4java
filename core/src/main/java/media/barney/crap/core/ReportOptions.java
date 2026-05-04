@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 record ReportOptions(
@@ -54,11 +56,19 @@ record ReportOptions(
     }
 
     private static boolean sameParent(@Nullable Path firstParent, @Nullable Path secondParent) throws IOException {
-        if (firstParent == null || secondParent == null) {
-            return firstParent == secondParent;
-        }
+        return (firstParent == null || secondParent == null)
+                ? firstParent == secondParent
+                : sameNonNullParent(firstParent, secondParent);
+    }
+
+    private static boolean sameNonNullParent(Path firstParent, Path secondParent) throws IOException {
         return firstParent.equals(secondParent)
-                || (Files.exists(firstParent) && Files.exists(secondParent) && Files.isSameFile(firstParent, secondParent));
+                || sameAliasedParent(firstParent, secondParent);
+    }
+
+    private static boolean sameAliasedParent(Path firstParent, Path secondParent) throws IOException {
+        return sameExistingFile(firstParent, secondParent)
+                || sameCaseInsensitivePath(firstParent, secondParent);
     }
 
     private static boolean sameFileName(Path first, Path second, @Nullable Path parent) {
@@ -70,14 +80,14 @@ record ReportOptions(
 
     private static boolean isCaseInsensitive(@Nullable Path path) {
         Path directory = nearestExistingDirectory(path);
-        if (directory == null) {
-            return isLikelyCaseInsensitiveOs();
-        }
+        return directory == null ? isLikelyCaseInsensitiveOs() : directoryIsCaseInsensitive(directory);
+    }
+
+    private static boolean directoryIsCaseInsensitive(Path directory) {
         try {
             Path probe = Files.createTempFile(directory, ".crap-java-case-", ".tmp");
             try {
-                Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
-                return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
+                return caseVariantExists(probe);
             } finally {
                 Files.deleteIfExists(probe);
             }
@@ -87,18 +97,25 @@ record ReportOptions(
     }
 
     private static @Nullable Path nearestExistingDirectory(@Nullable Path path) {
-        Path current = path == null ? Path.of(".").toAbsolutePath().normalize() : path.toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isDirectory(current)) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        return null;
+        Path start = path == null ? Path.of(".").toAbsolutePath().normalize() : path.toAbsolutePath().normalize();
+        return ancestors(start).filter(Files::isDirectory).findFirst().orElse(null);
+    }
+
+    private static Stream<Path> ancestors(Path path) {
+        return Stream.iterate(path, Objects::nonNull, Path::getParent);
+    }
+
+    private static boolean caseVariantExists(Path probe) {
+        Path variant = probe.resolveSibling(probe.getFileName().toString().toUpperCase(Locale.ROOT));
+        return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
     }
 
     private static boolean isLikelyCaseInsensitiveOs() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         return os.contains("win") || os.contains("mac");
+    }
+
+    private static boolean sameCaseInsensitivePath(Path first, Path second) {
+        return first.toString().equalsIgnoreCase(second.toString()) && isCaseInsensitive(first);
     }
 }
