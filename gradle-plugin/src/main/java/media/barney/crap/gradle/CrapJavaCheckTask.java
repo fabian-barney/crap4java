@@ -530,17 +530,34 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
     }
 
     private boolean isOwnedRememberedReport(RememberedReport rememberedReport) throws Exception {
-        if (rememberedReport == null) {
+        if (!hasRegularRememberedReport(rememberedReport)) {
             return false;
         }
-        if (!Files.isRegularFile(rememberedReport.path())) {
+        if (!hasCurrentOwnerLink(rememberedReport)) {
             return false;
         }
-        return rememberedReport.ownership().startsWith(LINK_OWNERSHIP + "\t")
-                && Files.exists(rememberedReport.ownerLink())
-                && Files.isSameFile(rememberedReport.path(), rememberedReport.ownerLink())
-                && !hasOtherOwnerLink(rememberedReport)
-                && rememberedReport.ownership().equals(ownership(rememberedReport.path()));
+        if (hasOtherOwnerLink(rememberedReport)) {
+            return false;
+        }
+        return hasCurrentOwnership(rememberedReport);
+    }
+
+    private boolean hasRegularRememberedReport(RememberedReport rememberedReport) {
+        return rememberedReport != null && Files.isRegularFile(rememberedReport.path());
+    }
+
+    private boolean hasCurrentOwnerLink(RememberedReport rememberedReport) throws IOException {
+        if (!rememberedReport.ownership().startsWith(LINK_OWNERSHIP + "\t")) {
+            return false;
+        }
+        if (!Files.exists(rememberedReport.ownerLink())) {
+            return false;
+        }
+        return Files.isSameFile(rememberedReport.path(), rememberedReport.ownerLink());
+    }
+
+    private boolean hasCurrentOwnership(RememberedReport rememberedReport) throws Exception {
+        return rememberedReport.ownership().equals(ownership(rememberedReport.path()));
     }
 
     private boolean hasOtherOwnerLink(RememberedReport rememberedReport) throws IOException {
