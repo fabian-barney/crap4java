@@ -839,7 +839,9 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         if (first.equals(second)) {
             return true;
         }
-        return sameExistingFile(first, second) || sameParentAndFileName(first, second);
+        return sameExistingFile(first, second)
+                || sameRealPath(first, second)
+                || sameParentAndFileName(first, second);
     }
 
     private boolean sameExistingFile(Path first, Path second) throws IOException {

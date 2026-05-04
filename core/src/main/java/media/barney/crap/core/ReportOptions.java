@@ -53,7 +53,9 @@ record ReportOptions(
             return true;
         }
         try {
-            return sameExistingFile(first, second) || sameParentAndFileName(first, second);
+            return sameExistingFile(first, second)
+                    || sameRealPath(first, second)
+                    || sameParentAndFileName(first, second);
         } catch (IOException exception) {
             return false;
         }
