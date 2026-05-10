@@ -2,12 +2,30 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-05-10
+
+### Added
+
+- Added configurable CRAP thresholds across the CLI, Maven plugin, and Gradle plugin, and exposed the active threshold in primary reports.
+- Added AI-agent-friendly primary report controls across the CLI, Maven plugin, and Gradle plugin: `agent`, `failuresOnly`, `omitRedundancy`, report-output path controls, and the `none` primary report format.
+- Added dedicated Maven and Gradle report controls for primary output, JUnit sidecars, and consumer-configurable report paths.
+- Added the dedicated `cognitive-java Gate` CI job and documented the matching local self-hosting gate workflow.
+
 ### Changed
 
-- CRAP scoring now uses the worse method coverage out of JaCoCo instruction and branch counters, reporting the selected coverage kind per method.
-- Simplified machine-readable reports to a top-level status plus method-level entries.
-- CRAP threshold is now configurable through the CLI, Maven plugin, and Gradle plugin, and reports expose the threshold as a global value.
-- Added CLI agent mode for compact failures-only primary output while keeping sidecar JUnit reports complete.
+- CRAP scoring now uses the worse available JaCoCo instruction or branch coverage and records the selected coverage kind per method.
+- Simplified machine-readable report schemas to a top-level status and threshold plus method entries, and redefined agent mode as a composite shortcut that can still be overridden explicitly.
+- Switched JSON and JUnit XML report marshaling to Jackson and improved the text report table formatting.
+- Resolved Maven report paths against the execution root, clarified Maven Central versus Plugin Portal consumption guidance, and documented self-hosting gate ownership more precisely.
+
+### Fixed
+
+- Hardened Gradle report state tracking and cleanup for stale sidecars, aliased paths, case-collision paths, symlinked targets, concurrent task state, and failed report replacement scenarios.
+- Kept Gradle module and JaCoCo report mappings configuration-cache-friendly while validating report-path collisions and internal-task file misuse earlier.
+
+### Dependencies
+
+- Updated Java build and publishing dependencies, including JUnit `6.0.3`, Jackson `2.21.3`, Error Prone `2.49.0`, NullAway `0.13.4`, Maven plugin tooling, and the Sonatype Central publishing plugin `0.10.0`.
 
 ## 0.4.1 - 2026-04-08
 
