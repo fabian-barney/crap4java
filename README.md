@@ -97,7 +97,7 @@ mvn -B -pl cli -am -DskipTests package
 From the project root you want to analyze:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.4.1.jar
+java -jar cli/target/crap-java-cli-0.5.0.jar
 ```
 
 ## CLI
@@ -107,8 +107,10 @@ java -jar cli/target/crap-java-cli-0.4.1.jar
 (no args)             Analyze all Java files under any nested src/main/java tree
 --changed             Analyze changed Java files under any nested src/main/java tree
 --build-tool <tool>   Force `auto`, `maven`, or `gradle`
---format <format>     Write `toon`, `json`, `text`, or `junit` output (`toon` by default)
---agent               Write compact primary output for agents (failures only)
+--format <format>     Write `toon`, `json`, `text`, `junit`, or `none` output (`toon` by default)
+--agent               Apply AI-agent defaults: `toon`, failures only, omit redundancy
+--failures-only[=true|false]  Only include failing methods in the primary report
+--omit-redundancy[=true|false]  Omit redundant method fields from the primary report
 --output <path>       Write the selected output format to a file instead of stdout
 --junit-report <path> Also write a JUnit XML report for CI test-report UIs
 --threshold <number>  Override the CRAP threshold (`8.0` by default)
@@ -119,34 +121,38 @@ java -jar cli/target/crap-java-cli-0.4.1.jar
 Examples:
 
 ```bash
-java -jar cli/target/crap-java-cli-0.4.1.jar --help
-java -jar cli/target/crap-java-cli-0.4.1.jar
-java -jar cli/target/crap-java-cli-0.4.1.jar --changed
-java -jar cli/target/crap-java-cli-0.4.1.jar --build-tool gradle
-java -jar cli/target/crap-java-cli-0.4.1.jar --format json
-java -jar cli/target/crap-java-cli-0.4.1.jar --format text
-java -jar cli/target/crap-java-cli-0.4.1.jar --agent --format json
-java -jar cli/target/crap-java-cli-0.4.1.jar --format junit --output target/crap-java/TEST-crap-java.xml
-java -jar cli/target/crap-java-cli-0.4.1.jar --junit-report target/crap-java/TEST-crap-java.xml
-java -jar cli/target/crap-java-cli-0.4.1.jar --threshold 6
-java -jar cli/target/crap-java-cli-0.4.1.jar --build-tool maven module-a/src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.4.1.jar src/main/java/demo/Sample.java
-java -jar cli/target/crap-java-cli-0.4.1.jar module-a module-b
+java -jar cli/target/crap-java-cli-0.5.0.jar --help
+java -jar cli/target/crap-java-cli-0.5.0.jar
+java -jar cli/target/crap-java-cli-0.5.0.jar --changed
+java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool gradle
+java -jar cli/target/crap-java-cli-0.5.0.jar --format json
+java -jar cli/target/crap-java-cli-0.5.0.jar --format none --junit-report target/crap-java/TEST-crap-java.xml
+java -jar cli/target/crap-java-cli-0.5.0.jar --format json --output target/crap-java/report.json
+java -jar cli/target/crap-java-cli-0.5.0.jar --failures-only=false --format json
+java -jar cli/target/crap-java-cli-0.5.0.jar --omit-redundancy=false --format json
+java -jar cli/target/crap-java-cli-0.5.0.jar --agent
+java -jar cli/target/crap-java-cli-0.5.0.jar --agent --format junit --output target/crap-java/TEST-crap-java-primary.xml
+java -jar cli/target/crap-java-cli-0.5.0.jar --junit-report target/crap-java/TEST-crap-java.xml
+java -jar cli/target/crap-java-cli-0.5.0.jar --threshold 6
+java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.5.0.jar src/main/java/demo/Sample.java
+java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b
 ```
 
-The CLI writes only the requested report format to stdout. Warnings and
-threshold errors are written to stderr. Machine-readable reports include
-top-level `status`
-(`passed` or `failed`) and `threshold` values, plus method-level
-`coverageKind` values identifying the coverage input used for each CRAP score
-(`instruction`, `branch`, or `N/A`).
+The CLI writes only the requested primary report format to stdout unless
+`--output` is set. Warnings and threshold errors are written to stderr. Use
+`--format none` when you only want the exit status or a JUnit sidecar.
 
-Use `--agent` for compact primary output that always keeps the top-level
-`status` and `threshold` and omits passing and skipped methods. Agent mode
-defaults to TOON and supports `--format toon`, `--format json`, and
-`--format text`; `--agent --format junit` is rejected because JUnit XML is not
-token-optimized. `--junit-report <path>` can still be combined with `--agent`
-to write the complete unfiltered JUnit report as a sidecar.
+Machine-readable primary reports include top-level `status` (`passed` or
+`failed`) and `threshold` values, plus method-level `coverageKind` values
+identifying the coverage input used for each CRAP score (`instruction`,
+`branch`, or `N/A`).
+
+`--agent` is a composite shortcut for `--format toon --failures-only
+--omit-redundancy` when those settings are not overridden explicitly.
+`--failures-only` and `--omit-redundancy` affect only the primary report.
+`--junit-report <path>` always writes the complete unfiltered JUnit XML sidecar,
+and it can be combined with any primary format, including `none`.
 
 The default threshold is `8.0`. Values below `4.0` print a warning because they
 are likely too noisy; values above `8.0` print a warning because they are too
@@ -162,12 +168,12 @@ coverage kind, source path, and line range.
 
 ## Distribution
 
-Public releases ship through Maven Central, with the Gradle Plugin Portal as the primary Gradle plugin channel:
+The current `0.5.0` release ships through Maven Central, with the Gradle Plugin Portal as the primary Gradle plugin channel:
 
-- `media.barney:crap-java-core:<version>`
-- `media.barney:crap-java-cli:<version>`
-- `media.barney:crap-java-maven-plugin:<version>`
-- Gradle plugin id `media.barney.crap-java` version `<version>`
+- `media.barney:crap-java-core:0.5.0`
+- `media.barney:crap-java-cli:0.5.0`
+- `media.barney:crap-java-maven-plugin:0.5.0`
+- Gradle plugin id `media.barney.crap-java` version `0.5.0`
 
 ### Gradle Plugin Portal
 
@@ -175,7 +181,7 @@ Apply the plugin in `build.gradle(.kts)`:
 
 ```kotlin
 plugins {
-    id("media.barney.crap-java") version "<version>"
+    id("media.barney.crap-java") version "0.5.0"
 }
 ```
 
@@ -187,16 +193,28 @@ Run:
 ./gradlew crap-java-check
 ```
 
-The Gradle task writes a JUnit XML report by default to
-`build/reports/crap-java/TEST-crap-java.xml`.
+By default the Gradle plugin writes no primary report and writes a JUnit XML
+sidecar to `build/reports/crap-java/TEST-crap-java.xml`.
 
-Override the threshold in `build.gradle(.kts)`:
+Configure default report behavior in `build.gradle(.kts)`:
 
 ```kotlin
 crapJava {
     threshold.set(6.0)
+    format.set("json")
+    agent.set(false)
+    failuresOnly.set(false)
+    omitRedundancy.set(true)
+    output.set(layout.buildDirectory.file("reports/crap-java/report.json"))
+    junit.set(true)
+    junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
 }
 ```
+
+`agent` switches the default primary report to TOON and defaults
+`failuresOnly` and `omitRedundancy` to `true` unless you override them
+explicitly. The same properties are available on individual
+`CrapJavaCheckTask` instances for task-specific overrides.
 
 ### Maven Central Gradle Plugin
 
@@ -215,11 +233,14 @@ Then apply the same plugin id in `build.gradle(.kts)`:
 
 ```kotlin
 plugins {
-    id("media.barney.crap-java") version "<version>"
+    id("media.barney.crap-java") version "0.5.0"
 }
 ```
 
-The marker publication lives at `media.barney.crap-java:media.barney.crap-java.gradle.plugin:<version>` and resolves to the implementation artifact `media.barney:crap-java-gradle-plugin:<version>`.
+The marker publication lives at
+`media.barney.crap-java:media.barney.crap-java.gradle.plugin:0.5.0` and
+resolves to the implementation artifact
+`media.barney:crap-java-gradle-plugin:0.5.0`.
 
 ### Maven Central
 
@@ -250,7 +271,7 @@ Add the plugin:
     <plugin>
       <groupId>media.barney</groupId>
       <artifactId>crap-java-maven-plugin</artifactId>
-      <version>&lt;version&gt;</version>
+      <version>0.5.0</version>
       <executions>
         <execution>
           <goals>
@@ -273,11 +294,29 @@ Run:
 mvn verify
 ```
 
-The Maven plugin writes a JUnit XML report by default to
-`target/crap-java/TEST-crap-java.xml`. Override the path with:
+By default the Maven plugin writes no primary report and writes a JUnit XML
+sidecar to `target/crap-java/TEST-crap-java.xml`.
+
+Control the reports with:
 
 ```bash
-mvn verify -DcrapJava.junitReportPath=target/custom-crap-java.xml
+mvn verify -DcrapJava.format=json -DcrapJava.output=target/crap-java/report.json
+mvn verify -DcrapJava.agent=true
+mvn verify -DcrapJava.failuresOnly=false -DcrapJava.omitRedundancy=true
+mvn verify -DcrapJava.junit=false
+mvn verify -DcrapJava.junitReport=target/custom-crap-java.xml
+mvn verify -DcrapJava.threshold=6.0
+```
+
+Defaults: `crapJava.format=none`, `crapJava.agent=false`, and
+`crapJava.junit=true`. `crapJava.agent=true` switches the default primary report
+to TOON and defaults `crapJava.failuresOnly` and `crapJava.omitRedundancy` to
+`true` unless they are supplied explicitly.
+
+Override the JUnit XML path with:
+
+```bash
+mvn verify -DcrapJava.junitReport=target/custom-crap-java.xml
 ```
 
 Override the threshold with:
