@@ -44,6 +44,10 @@ class MainTest {
         assertTrue(utf8(out).contains("--failures-only"));
         assertTrue(utf8(out).contains("--omit-redundancy"));
         assertTrue(utf8(out).contains("--threshold"));
+        assertTrue(utf8(out).contains("Exit codes:"));
+        assertTrue(utf8(out).contains("0   Pass"));
+        assertTrue(utf8(out).contains("1   Error"));
+        assertTrue(utf8(out).contains("2   Threshold exceeded"));
     }
 
     @Test

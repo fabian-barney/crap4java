@@ -197,6 +197,11 @@ public final class Main {
                   crap-java --threshold 6                 Override the CRAP threshold (default: 8.0)
                   crap-java <path...>                     Analyze files, or for directory args analyze nested src/main/java trees under each path
                   crap-java --help                        Print this help message
+
+                Exit codes:
+                  0   Pass - no methods exceed threshold
+                  1   Error - invalid arguments, parse failure, or I/O failure
+                  2   Threshold exceeded - at least one method has CRAP > threshold
                 """;
     }
 
