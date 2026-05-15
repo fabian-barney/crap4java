@@ -218,7 +218,7 @@ class ReportFormatterTest {
         assertEquals("0", root.getAttribute("skipped"));
         assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("classname"));
         assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("file"));
-        assertEquals("0", danger.getAttribute("time"));
+        assertEquals("0.0", danger.getAttribute("time"));
         assertTrue(report.contains("<property name=\"threshold\" value=\"8.0\"/>"));
         assertFalse(hasTestcase(document, "safe:9"));
         assertFalse(hasTestcase(document, "unknown:20"));
@@ -360,13 +360,14 @@ class ReportFormatterTest {
 
     @Test
     void formatsJunitReportWithFailuresSkippedAndProperties() throws Exception {
-        String report = ReportFormatter.format(report(
+        String report = ReportFormatter.format(reportWithElapsed(1.2,
                 metric("danger", "demo.Sample", 4, 5, 10.0, 9.645),
                 metric("unknown", "demo.Sample", 20, 2, null, null)
         ), ReportFormat.JUNIT);
 
         Document document = parseXml(report);
         Element root = document.getDocumentElement();
+        Element suite = (Element) document.getElementsByTagName("testsuite").item(0);
         Element failure = (Element) document.getElementsByTagName("failure").item(0);
         Element skipped = (Element) document.getElementsByTagName("skipped").item(0);
         Element danger = testcaseByName(document, "danger:4");
@@ -377,16 +378,17 @@ class ReportFormatterTest {
         assertEquals("1", root.getAttribute("failures"));
         assertEquals("0", root.getAttribute("errors"));
         assertEquals("1", root.getAttribute("skipped"));
-        assertEquals("0", root.getAttribute("time"));
+        assertEquals("1.2", root.getAttribute("time"));
+        assertEquals("1.2", suite.getAttribute("time"));
         assertTrue(report.contains("    <property name=\"threshold\" value=\"8.0\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"instruction\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"N/A\"/>"));
         assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("classname"));
         assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("file"));
-        assertEquals("0", danger.getAttribute("time"));
+        assertEquals("0.6", danger.getAttribute("time"));
         assertEquals("src/main/java/demo/Sample.java", unknown.getAttribute("classname"));
         assertEquals("src/main/java/demo/Sample.java", unknown.getAttribute("file"));
-        assertEquals("0", unknown.getAttribute("time"));
+        assertEquals("0.6", unknown.getAttribute("time"));
         assertEquals("CRAP threshold exceeded: 9.6 > 8.0", failure.getAttribute("message"));
         assertEquals("crap-java.threshold", failure.getAttribute("type"));
         assertTrue(failure.getTextContent().contains("CRAP score: 9.6"));
@@ -482,6 +484,17 @@ class ReportFormatterTest {
 
     private static CrapReport report(MethodMetrics... metrics) {
         return CrapReport.from(List.of(metrics), Main.DEFAULT_THRESHOLD);
+    }
+
+    private static CrapReport reportWithElapsed(double elapsedSeconds, MethodMetrics... metrics) {
+        CrapReport report = CrapReport.from(List.of(metrics), Main.DEFAULT_THRESHOLD);
+        return new CrapReport(
+                report.status(),
+                report.threshold(),
+                report.methods(),
+                report.exclusions(),
+                elapsedSeconds
+        );
     }
 
     private static int tableHeaderIndex(List<String> lines, String firstColumn) {

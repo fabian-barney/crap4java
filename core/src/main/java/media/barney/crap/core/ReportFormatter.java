@@ -242,30 +242,33 @@ final class ReportFormatter {
         List<CrapReport.MethodReport> methods = sortedMethods(report.methods());
         int failed = countStatus(methods, MethodStatus.FAILED);
         int skipped = countStatus(methods, MethodStatus.SKIPPED);
+        String suiteTime = formatTime(report.elapsedSeconds());
+        String testCaseTime = formatTime(methods.isEmpty() ? 0.0 : report.elapsedSeconds() / methods.size());
         JunitTestSuite testSuite = new JunitTestSuite(
                 "crap-java",
                 methods.size(),
                 failed,
                 0,
                 skipped,
-                "0",
+                suiteTime,
                 new JunitProperties(junitSuiteProperties(report, includeExclusionAudit)),
                 methods.stream()
-                        .map(method -> junitTestCase(method, report.threshold(), omitRedundancy))
+                        .map(method -> junitTestCase(method, report.threshold(), omitRedundancy, testCaseTime))
                         .toList()
         );
-        return new JunitTestSuites(methods.size(), failed, 0, skipped, "0", List.of(testSuite));
+        return new JunitTestSuites(methods.size(), failed, 0, skipped, suiteTime, List.of(testSuite));
     }
 
     private static JunitTestCase junitTestCase(CrapReport.MethodReport method,
                                                double threshold,
-                                               boolean omitRedundancy) {
+                                               boolean omitRedundancy,
+                                               String time) {
         return new JunitTestCase(
                 method.sourcePath(),
                 testcaseName(method),
                 method.sourcePath(),
                 method.startLine(),
-                "0",
+                time,
                 junitProperties(method, omitRedundancy),
                 junitFailure(method, threshold),
                 junitSkipped(method, threshold)
@@ -379,7 +382,13 @@ final class ReportFormatter {
         List<CrapReport.MethodReport> failedMethods = report.methods().stream()
                 .filter(method -> method.status() == MethodStatus.FAILED)
                 .toList();
-        return new CrapReport(report.status(), report.threshold(), failedMethods, report.exclusions());
+        return new CrapReport(
+                report.status(),
+                report.threshold(),
+                failedMethods,
+                report.exclusions(),
+                report.elapsedSeconds()
+        );
     }
 
     private static boolean hasExclusionAudit(SourceExclusionAudit audit) {
@@ -409,6 +418,10 @@ final class ReportFormatter {
 
     private static String number(double value) {
         return Double.toString(value);
+    }
+
+    private static String formatTime(double elapsedSeconds) {
+        return String.format(Locale.ROOT, "%.1f", Math.max(0.0, elapsedSeconds));
     }
 
     private record JsonReport(
