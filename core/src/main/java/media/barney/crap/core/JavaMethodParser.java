@@ -67,7 +67,7 @@ final class JavaMethodParser {
         return URI.create("string:///" + sourcePath(className));
     }
 
-    static boolean hasKnownLineRange(long start, long endExclusive) {
+    static boolean hasKnownSourceRange(long start, long endExclusive) {
         return start != Diagnostic.NOPOS
                 && endExclusive != Diagnostic.NOPOS
                 && endExclusive > start;
@@ -125,7 +125,7 @@ final class JavaMethodParser {
 
             long start = positions.getStartPosition(unit, node);
             long bodyEndExclusive = positions.getEndPosition(unit, node.getBody());
-            if (!hasKnownLineRange(start, bodyEndExclusive)) {
+            if (!hasKnownSourceRange(start, bodyEndExclusive)) {
                 return null;
             }
             int startLine = lineNumber(start);

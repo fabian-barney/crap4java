@@ -103,10 +103,10 @@ class JavaMethodParserTest {
 
     @Test
     void rejectsUnknownSourcePositionRanges() {
-        assertFalse(JavaMethodParser.hasKnownLineRange(Diagnostic.NOPOS, 10));
-        assertFalse(JavaMethodParser.hasKnownLineRange(10, Diagnostic.NOPOS));
-        assertFalse(JavaMethodParser.hasKnownLineRange(10, 10));
-        assertTrue(JavaMethodParser.hasKnownLineRange(10, 11));
+        assertFalse(JavaMethodParser.hasKnownSourceRange(Diagnostic.NOPOS, 10));
+        assertFalse(JavaMethodParser.hasKnownSourceRange(10, Diagnostic.NOPOS));
+        assertFalse(JavaMethodParser.hasKnownSourceRange(10, 10));
+        assertTrue(JavaMethodParser.hasKnownSourceRange(10, 11));
     }
 
     @Test
