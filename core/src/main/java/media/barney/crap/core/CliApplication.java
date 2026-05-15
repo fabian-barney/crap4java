@@ -74,8 +74,6 @@ final class CliApplication {
                     exclusions,
                     audit
             );
-            metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
-                    Comparator.nullsLast(Comparator.reverseOrder())));
             CrapReport report = CrapReport.from(metrics, parsed.threshold(), audit.build())
                     .withElapsedNanos(nanoTime.getAsLong() - startedAt);
             ReportPublisher.publish(report, reportOptions(parsed), out);
