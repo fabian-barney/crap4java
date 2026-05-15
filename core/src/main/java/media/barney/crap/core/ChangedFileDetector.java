@@ -177,7 +177,7 @@ final class ChangedFileDetector {
             }
             thread.interrupt();
             try {
-                thread.join(Duration.ofSeconds(5).toMillis());
+                thread.join(ProcessTimeout.CLEANUP_TIMEOUT.toMillis());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }

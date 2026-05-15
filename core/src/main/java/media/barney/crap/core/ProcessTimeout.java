@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 
 final class ProcessTimeout {
 
-    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
+    static final Duration CLEANUP_TIMEOUT = Duration.ofSeconds(5);
 
     private ProcessTimeout() {
     }
@@ -26,15 +26,15 @@ final class ProcessTimeout {
             }
             String commandText = String.join(" ", command);
             process.destroyForcibly();
-            if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            if (!process.waitFor(CLEANUP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new IllegalStateException(commandDescription + " timed out after " + timeout
-                        + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
+                        + " and could not be terminated within " + CLEANUP_TIMEOUT + ": " + commandText);
             }
             throw new IllegalStateException(commandDescription + " timed out after " + timeout + ": " + commandText);
         } catch (InterruptedException ex) {
             process.destroyForcibly();
             try {
-                process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+                process.waitFor(CLEANUP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             } catch (InterruptedException cleanupFailure) {
                 ex.addSuppressed(cleanupFailure);
             }

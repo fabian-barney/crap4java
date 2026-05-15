@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -187,19 +186,7 @@ class ChangedFileDetectorTest {
     }
 
     private static List<String> javaSleepingGitCommand() {
-        return List.of(
-                javaExecutable(),
-                "-cp",
-                System.getProperty("java.class.path"),
-                SleepingGit.class.getName()
-        );
-    }
-
-    private static String javaExecutable() {
-        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
-                ? "java.exe"
-                : "java";
-        return Path.of(System.getProperty("java.home"), "bin", executable).toString();
+        return TestJavaCommand.command(SleepingGit.class);
     }
 
     public static final class SleepingGit {

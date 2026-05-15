@@ -106,19 +106,7 @@ class ProcessCommandExecutorTest {
     }
 
     private static List<String> largeOutputCommand() {
-        return List.of(
-                javaExecutable(),
-                "-cp",
-                System.getProperty("java.class.path"),
-                LargeOutput.class.getName()
-        );
-    }
-
-    private static String javaExecutable() {
-        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
-                ? "java.exe"
-                : "java";
-        return Path.of(System.getProperty("java.home"), "bin", executable).toString();
+        return TestJavaCommand.command(LargeOutput.class);
     }
 
     public static final class LargeOutput {
