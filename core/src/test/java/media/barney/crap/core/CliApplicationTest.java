@@ -169,7 +169,7 @@ class CliApplicationTest {
 
         assertEquals(0, exit);
         assertEquals(List.of(moduleRoot), directories);
-        assertTrue(utf8(out).contains("mutate4java.Sample"));
+        assertTrue(utf8(out).contains("tools/mutate4java/src/mutate4java/Sample.java"));
         assertFalse(utf8(err).contains("Warning: JaCoCo XML not found"));
     }
 
@@ -219,7 +219,7 @@ class CliApplicationTest {
         assertEquals(0, exit);
         assertEquals(List.of(tempDir), directories);
         assertEquals(List.of(List.of("gradle", "--no-daemon", "-q", ":apps:demo:test", ":apps:demo:jacocoTestReport")), commands);
-        assertTrue(utf8(out).contains("demo.Sample"));
+        assertTrue(utf8(out).contains("apps/demo/src/main/java/demo/Sample.java"));
         assertFalse(utf8(err).contains("Warning: JaCoCo XML not found"));
     }
 
