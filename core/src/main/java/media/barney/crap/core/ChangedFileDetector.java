@@ -101,12 +101,26 @@ final class ChangedFileDetector {
         try {
             return outputFuture.get();
         } catch (ExecutionException ex) {
-            Throwable cause = ex.getCause();
-            if (cause instanceof UncheckedIOException io) {
-                throw io.getCause();
-            }
-            throw new IOException("Unable to read git status output", cause);
+            throw outputException(ex.getCause());
         }
+    }
+
+    private static IOException outputException(@Nullable Throwable cause) {
+        if (cause instanceof UncheckedIOException io) {
+            return uncheckedIoCause(io);
+        }
+        return wrappedOutputException(cause);
+    }
+
+    private static IOException uncheckedIoCause(UncheckedIOException error) {
+        @Nullable IOException cause = error.getCause();
+        return cause == null ? new IOException("Unable to read git status output", error) : cause;
+    }
+
+    private static IOException wrappedOutputException(@Nullable Throwable cause) {
+        return cause == null
+                ? new IOException("Unable to read git status output")
+                : new IOException("Unable to read git status output", cause);
     }
 
     static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot) throws IOException, InterruptedException {
