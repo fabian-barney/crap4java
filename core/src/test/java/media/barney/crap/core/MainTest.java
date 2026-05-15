@@ -48,6 +48,8 @@ class MainTest {
         assertTrue(utf8(out).contains("0   Pass"));
         assertTrue(utf8(out).contains("1   Error"));
         assertTrue(utf8(out).contains("2   Threshold exceeded"));
+        assertTrue(utf8(out).contains("Report paths:"));
+        assertTrue(utf8(out).contains("outside the project root are honored"));
     }
 
     @Test
