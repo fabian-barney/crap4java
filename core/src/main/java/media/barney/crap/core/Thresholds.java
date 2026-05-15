@@ -1,6 +1,6 @@
 package media.barney.crap.core;
 
-import java.util.Locale;
+import java.math.BigDecimal;
 
 final class Thresholds {
 
@@ -47,7 +47,11 @@ final class Thresholds {
     }
 
     private static String formatBoundary(double value) {
-        return String.format(Locale.ROOT, "%.1f", value);
+        BigDecimal boundary = BigDecimal.valueOf(value).stripTrailingZeros();
+        if (boundary.scale() <= 0) {
+            return boundary.toPlainString() + ".0";
+        }
+        return boundary.toPlainString();
     }
 
     private static String recommendation() {
