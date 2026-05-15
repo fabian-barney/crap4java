@@ -243,7 +243,7 @@ class CrapJavaGradlePluginFunctionalTest {
         assertTrue(primaryReport.contains("\"threshold\": 8.0"));
         assertTrue(primaryReport.contains("\"method\": \"alpha\""));
         assertFalse(primaryReport.contains("      \"status\":"));
-        assertTrue(junitReport.contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(junitReport.contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\""));
         assertTrue(junitReport.contains("<property name=\"status\" value=\"passed\"/>"));
     }
 

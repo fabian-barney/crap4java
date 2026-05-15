@@ -107,7 +107,14 @@ record ProjectModule(Path moduleRoot, Path executionRoot, BuildTool buildTool) {
 
     private @Nullable Path existingPath(String fileName) {
         Path wrapper = executionRoot.resolve(fileName);
-        return Files.exists(wrapper) ? wrapper : null;
+        if (!Files.exists(wrapper)) {
+            return null;
+        }
+        if (!isWindows() && !Files.isExecutable(wrapper)) {
+            throw new IllegalStateException("Build wrapper exists but is not executable: " + wrapper
+                    + ". Run chmod +x " + wrapper.getFileName() + " or remove it to use the build tool from PATH.");
+        }
+        return wrapper;
     }
 
     private static boolean isWindows() {
