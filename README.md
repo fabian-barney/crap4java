@@ -126,6 +126,9 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 <directory ...>       Analyze all Java files under each directory's nested src/main/java trees
 ```
 
+Value-taking long options may also be written with inline assignment, such as
+`--build-tool=maven`, `--format=json`, or `--exclude='module-a/**'`.
+
 Examples:
 
 ```bash
@@ -133,6 +136,7 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --help
 java -jar cli/target/crap-java-cli-0.5.0.jar
 java -jar cli/target/crap-java-cli-0.5.0.jar --changed
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool gradle
+java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool=maven
 java -jar cli/target/crap-java-cli-0.5.0.jar --format json
 java -jar cli/target/crap-java-cli-0.5.0.jar --format none --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --format json --output target/crap-java/report.json
@@ -142,7 +146,9 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --agent
 java -jar cli/target/crap-java-cli-0.5.0.jar --agent --format junit --output target/crap-java/TEST-crap-java-primary.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --threshold 6
+java -jar cli/target/crap-java-cli-0.5.0.jar --threshold=6
 java -jar cli/target/crap-java-cli-0.5.0.jar --exclude 'module-a/**' --exclude-class '.*MapperImpl$'
+java -jar cli/target/crap-java-cli-0.5.0.jar --exclude='module-a/**' --exclude-class='.*MapperImpl$'
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b
