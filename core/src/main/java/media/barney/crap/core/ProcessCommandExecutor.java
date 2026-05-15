@@ -3,7 +3,7 @@ package media.barney.crap.core;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -16,6 +16,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
 
     private final Duration timeout;
     private final PrintStream processOutput;
+    private final Charset outputCharset;
 
     ProcessCommandExecutor() {
         this(Duration.ofMinutes(10), System.err);
@@ -26,8 +27,13 @@ final class ProcessCommandExecutor implements CommandExecutor {
     }
 
     ProcessCommandExecutor(Duration timeout, PrintStream processOutput) {
+        this(timeout, processOutput, Charset.defaultCharset());
+    }
+
+    ProcessCommandExecutor(Duration timeout, PrintStream processOutput, Charset outputCharset) {
         this.timeout = timeout;
         this.processOutput = processOutput;
+        this.outputCharset = outputCharset;
     }
 
     @Override
@@ -68,7 +74,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
         }, "crap-java-process-output-" + label);
         thread.setDaemon(true);
         thread.start();
-        return new OutputPipe(thread, capture);
+        return new OutputPipe(thread, capture, outputCharset);
     }
 
     private void copyOutput(InputStream input, BoundedOutputCapture capture) throws IOException {
@@ -76,18 +82,18 @@ final class ProcessCommandExecutor implements CommandExecutor {
         int read;
         while ((read = input.read(buffer)) != -1) {
             processOutput.write(buffer, 0, read);
+            processOutput.flush();
             capture.write(buffer, 0, read);
         }
-        processOutput.flush();
     }
 
-    private record OutputPipe(Thread thread, BoundedOutputCapture capture) {
+    private record OutputPipe(Thread thread, BoundedOutputCapture capture, Charset outputCharset) {
         private void join() throws InterruptedException {
             thread.join();
         }
 
         private String output() {
-            return capture.toString(StandardCharsets.UTF_8);
+            return capture.toString(outputCharset);
         }
     }
 
