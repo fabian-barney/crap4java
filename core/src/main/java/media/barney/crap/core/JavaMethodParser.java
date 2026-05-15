@@ -83,10 +83,18 @@ final class JavaMethodParser {
     }
 
     private static String formatDiagnostic(Diagnostic<? extends JavaFileObject> diagnostic) {
-        long line = diagnostic.getLineNumber();
-        long column = diagnostic.getColumnNumber();
-        String location = line < 0 ? "unknown location" : "line " + line + ", column " + column;
-        return location + ": " + diagnostic.getMessage(Locale.ROOT);
+        return formatDiagnosticLocation(diagnostic.getLineNumber(), diagnostic.getColumnNumber())
+                + ": " + diagnostic.getMessage(Locale.ROOT);
+    }
+
+    static String formatDiagnosticLocation(long line, long column) {
+        if (line < 0) {
+            return "unknown location";
+        }
+        if (column < 0) {
+            return "line " + line;
+        }
+        return "line " + line + ", column " + column;
     }
 
     private static List<MethodDescriptor> collectMethods(JavacTask task,

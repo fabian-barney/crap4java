@@ -124,6 +124,13 @@ class JavaMethodParserTest {
     }
 
     @Test
+    void formatsUnknownDiagnosticLocationsWithoutNegativeColumns() {
+        assertEquals("unknown location", JavaMethodParser.formatDiagnosticLocation(-1, -1));
+        assertEquals("line 5", JavaMethodParser.formatDiagnosticLocation(5, -1));
+        assertEquals("line 5, column 7", JavaMethodParser.formatDiagnosticLocation(5, 7));
+    }
+
+    @Test
     void ignoresKeywordsInsideCommentsAndStrings() {
         String source = """
                 class Sample {
