@@ -112,7 +112,7 @@ final class JavaMethodParser {
 
         @Override
         public Void visitMethod(MethodTree node, Void unused) {
-            if (node.getBody() == null || node.getReturnType() == null) {
+            if (node.getBody() == null) {
                 return null;
             }
 
