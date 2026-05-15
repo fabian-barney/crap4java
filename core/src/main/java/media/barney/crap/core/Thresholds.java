@@ -1,8 +1,12 @@
 package media.barney.crap.core;
 
+import java.math.BigDecimal;
+
 final class Thresholds {
 
     static final double DEFAULT = 8.0;
+    // Keep the warning boundary independent from the recommended default.
+    private static final double TOO_LENIENT_BOUNDARY = 8.0;
 
     private Thresholds() {
     }
@@ -27,7 +31,7 @@ final class Thresholds {
     }
 
     static boolean isTooLenient(double value) {
-        return Double.compare(value, DEFAULT) > 0;
+        return Double.compare(value, TOO_LENIENT_BOUNDARY) > 0;
     }
 
     static String warning(double value) {
@@ -36,10 +40,18 @@ final class Thresholds {
                     + recommendation();
         }
         if (isTooLenient(value)) {
-            return "Warning: CRAP threshold above 8.0 is too lenient even for hard gates. "
-                    + recommendation();
+            return "Warning: CRAP threshold above " + formatBoundary(TOO_LENIENT_BOUNDARY)
+                    + " is too lenient even for hard gates. " + recommendation();
         }
         return "";
+    }
+
+    private static String formatBoundary(double value) {
+        BigDecimal boundary = BigDecimal.valueOf(value).stripTrailingZeros();
+        if (boundary.scale() <= 0) {
+            return boundary.toPlainString() + ".0";
+        }
+        return boundary.toPlainString();
     }
 
     private static String recommendation() {
