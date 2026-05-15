@@ -148,16 +148,23 @@ final class CliArgumentsParser {
 
     private static int parseValuedOption(String[] args, int index, ParseStateBuilder state, String arg) {
         AssignedOption option = AssignedOption.parse(arg);
-        if (parseBuildToolOption(args, index, state, option)
-                || parseReportFormatOption(args, index, state, option)
-                || parseOutputOption(args, index, state, option)
-                || parseJunitReportOption(args, index, state, option)
-                || parseSourceRootOption(args, index, state, option)
+        if (parseGeneralValuedOption(args, index, state, option)
                 || parseThresholdOption(args, index, state, option)
                 || parseExclusionOption(args, index, state, option)) {
             return option.hasInlineValue() ? index : index + 1;
         }
         throw new IllegalArgumentException("Unknown option: " + arg);
+    }
+
+    private static boolean parseGeneralValuedOption(String[] args,
+                                                    int index,
+                                                    ParseStateBuilder state,
+                                                    AssignedOption option) {
+        return parseBuildToolOption(args, index, state, option)
+                || parseReportFormatOption(args, index, state, option)
+                || parseOutputOption(args, index, state, option)
+                || parseJunitReportOption(args, index, state, option)
+                || parseSourceRootOption(args, index, state, option);
     }
 
     private static boolean parseBuildToolOption(String[] args,
