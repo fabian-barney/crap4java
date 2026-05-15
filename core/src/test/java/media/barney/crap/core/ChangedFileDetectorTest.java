@@ -187,7 +187,9 @@ class ChangedFileDetectorTest {
     }
 
     private static String javaExecutable() {
-        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
+        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
+                ? "java.exe"
+                : "java";
         return Path.of(System.getProperty("java.home"), "bin", executable).toString();
     }
 

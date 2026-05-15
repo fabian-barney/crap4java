@@ -1,14 +1,12 @@
 package media.barney.crap.core;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 
@@ -34,9 +32,16 @@ final class ChangedFileDetector {
                 .start();
 
         process.getOutputStream().close();
-        CompletableFuture<byte[]> outputFuture = readOutput(process);
-        int exit = waitFor(process, command, timeout);
-        byte[] outputBytes = outputBytes(outputFuture);
+        OutputReader outputReader = readOutput(process.getInputStream());
+        int exit;
+        byte[] outputBytes;
+        try {
+            exit = waitFor(process, command, timeout);
+            outputBytes = outputReader.bytes();
+        } catch (IOException | InterruptedException | RuntimeException ex) {
+            outputReader.close();
+            throw ex;
+        }
         String output = new String(outputBytes, StandardCharsets.UTF_8);
         if (exit != 0) {
             throw new IllegalStateException("git status failed: " + output);
@@ -72,16 +77,6 @@ final class ChangedFileDetector {
         return command;
     }
 
-    private static CompletableFuture<byte[]> readOutput(Process process) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (var input = process.getInputStream()) {
-                return input.readAllBytes();
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-    }
-
     private static int waitFor(Process process,
                                List<String> command,
                                Duration timeout) throws InterruptedException {
@@ -97,30 +92,10 @@ final class ChangedFileDetector {
         throw new IllegalStateException("git status timed out after " + timeout + ": " + String.join(" ", command));
     }
 
-    private static byte[] outputBytes(CompletableFuture<byte[]> outputFuture) throws IOException, InterruptedException {
-        try {
-            return outputFuture.get();
-        } catch (ExecutionException ex) {
-            throw outputException(ex.getCause());
-        }
-    }
-
-    private static IOException outputException(@Nullable Throwable cause) {
-        if (cause instanceof UncheckedIOException io) {
-            return uncheckedIoCause(io);
-        }
-        return wrappedOutputException(cause);
-    }
-
-    private static IOException uncheckedIoCause(UncheckedIOException error) {
-        @Nullable IOException cause = error.getCause();
-        return cause == null ? new IOException("Unable to read git status output", error) : cause;
-    }
-
-    private static IOException wrappedOutputException(@Nullable Throwable cause) {
-        return cause == null
-                ? new IOException("Unable to read git status output")
-                : new IOException("Unable to read git status output", cause);
+    private static OutputReader readOutput(InputStream input) {
+        OutputReader reader = new OutputReader(input);
+        reader.start();
+        return reader;
     }
 
     static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot) throws IOException, InterruptedException {
@@ -174,6 +149,48 @@ final class ChangedFileDetector {
                 return false;
             }
             return "??".equals(status) || status.charAt(0) != ' ' || status.charAt(1) != ' ';
+        }
+    }
+
+    private static final class OutputReader {
+        private final InputStream input;
+        private final Thread thread;
+        private byte[] output = new byte[0];
+        private @Nullable IOException failure;
+
+        private OutputReader(InputStream input) {
+            this.input = input;
+            this.thread = new Thread(this::read, "crap-java-git-status-output");
+            this.thread.setDaemon(true);
+        }
+
+        private void start() {
+            thread.start();
+        }
+
+        private void read() {
+            try (input) {
+                output = input.readAllBytes();
+            } catch (IOException ex) {
+                failure = ex;
+            }
+        }
+
+        private byte[] bytes() throws IOException, InterruptedException {
+            thread.join();
+            if (failure != null) {
+                throw new IOException("Unable to read git status output", failure);
+            }
+            return output;
+        }
+
+        private void close() {
+            try {
+                input.close();
+            } catch (IOException ex) {
+                // Nothing useful can be done while already failing the git status call.
+            }
+            thread.interrupt();
         }
     }
 }
