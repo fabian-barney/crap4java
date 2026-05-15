@@ -10,6 +10,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -505,23 +506,27 @@ class MainTest {
         Path targetDirectory = currentDirectory.resolve("target");
         Files.createDirectories(targetDirectory);
         Path reportRoot = Files.createTempDirectory(targetDirectory, "legacy-junit-");
-        Path junitReport = reportRoot.resolve("legacy-relative-junit.xml");
-        Path relativeJunitReport = currentDirectory.relativize(junitReport);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        try {
+            Path junitReport = reportRoot.resolve("legacy-relative-junit.xml");
+            Path relativeJunitReport = currentDirectory.relativize(junitReport);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exit = Main.runWithExistingCoverage(
-                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
-                tempDir,
-                new PrintStream(out),
-                new PrintStream(err),
-                relativeJunitReport,
-                8.0
-        );
+            int exit = Main.runWithExistingCoverage(
+                    List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                    tempDir,
+                    new PrintStream(out),
+                    new PrintStream(err),
+                    relativeJunitReport,
+                    8.0
+            );
 
-        assertEquals(2, exit);
-        assertTrue(Files.exists(junitReport));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+            assertEquals(2, exit);
+            assertTrue(Files.exists(junitReport));
+            assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        } finally {
+            deleteTree(reportRoot);
+        }
     }
 
     @Test
@@ -832,6 +837,17 @@ class MainTest {
 
     private static String utf8(ByteArrayOutputStream output) {
         return output.toString(StandardCharsets.UTF_8);
+    }
+
+    private static void deleteTree(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var paths = Files.walk(path)) {
+            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(entry);
+            }
+        }
     }
 
     private void writeMixedCoverageSample() throws Exception {

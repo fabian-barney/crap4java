@@ -58,9 +58,15 @@ jobs:
         run: chmod +x gradle-plugin/gradlew
 
       - name: Run Gradle plugin functional tests
+        if: runner.os != 'Windows'
         working-directory: gradle-plugin
-        shell: bash
-        run: bash gradlew test
+        run: ./gradlew test
+
+      - name: Run Gradle plugin functional tests
+        if: runner.os == 'Windows'
+        working-directory: gradle-plugin
+        shell: pwsh
+        run: .\gradlew.bat test
 
   maven-plugin:
     name: Maven Plugin (${{ matrix.os }})

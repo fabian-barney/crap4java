@@ -3,8 +3,10 @@ package media.barney.crap.core;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.List;
 
@@ -58,21 +60,25 @@ class ProjectModuleResolverTest {
         Path targetDirectory = currentDirectory.resolve("target");
         Files.createDirectories(targetDirectory);
         Path workspace = Files.createTempDirectory(targetDirectory, "relative-workspace-");
-        Files.writeString(workspace.resolve("settings.gradle"), "rootProject.name = 'demo'");
-        Files.writeString(workspace.resolve("gradlew"), "#!/bin/sh");
-        Files.writeString(workspace.resolve("gradlew.bat"), "@echo off");
-        Path moduleRoot = workspace.resolve("apps/demo");
-        Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
-        Files.createDirectories(source.getParent());
-        Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
-        Files.writeString(source, "class Sample {}");
+        try {
+            Files.writeString(workspace.resolve("settings.gradle"), "rootProject.name = 'demo'");
+            Files.writeString(workspace.resolve("gradlew"), "#!/bin/sh");
+            Files.writeString(workspace.resolve("gradlew.bat"), "@echo off");
+            Path moduleRoot = workspace.resolve("apps/demo");
+            Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
+            Files.writeString(source, "class Sample {}");
 
-        Path relativeWorkspaceRoot = currentDirectory.relativize(workspace);
-        Path relativeSource = currentDirectory.relativize(source);
+            Path relativeWorkspaceRoot = currentDirectory.relativize(workspace);
+            Path relativeSource = currentDirectory.relativize(source);
 
-        ProjectModule module = ProjectModuleResolver.resolve(relativeWorkspaceRoot, relativeSource, BuildToolSelection.AUTO);
+            ProjectModule module = ProjectModuleResolver.resolve(relativeWorkspaceRoot, relativeSource, BuildToolSelection.AUTO);
 
-        assertEquals(gradleWrapperCommand(workspace), module.coverageCommand().get(0));
+            assertEquals(gradleWrapperCommand(workspace), module.coverageCommand().get(0));
+        } finally {
+            deleteTree(workspace);
+        }
     }
 
     @Test
@@ -128,6 +134,17 @@ class ProjectModuleResolverTest {
             return executionRoot.resolve("gradlew.bat").toString();
         }
         return executionRoot.resolve("gradlew").toString();
+    }
+
+    private static void deleteTree(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (var paths = Files.walk(path)) {
+            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(entry);
+            }
+        }
     }
 }
 
