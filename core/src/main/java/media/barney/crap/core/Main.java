@@ -208,6 +208,8 @@ public final class Main {
                 Report paths:
                   Relative --output and --junit-report paths resolve against the project root
                   Absolute paths and normalized paths outside the project root are honored
+
+                Long options that take a value may also be written as --option=value.
                 """;
     }
 
