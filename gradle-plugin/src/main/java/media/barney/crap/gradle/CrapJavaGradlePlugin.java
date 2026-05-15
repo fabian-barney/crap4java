@@ -29,6 +29,10 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
         extension.getJunit().convention(true);
         extension.getJunitReport().convention(project.getLayout().getBuildDirectory()
                 .file("reports/crap-java/TEST-crap-java.xml"));
+        extension.getExcludes().convention(List.of());
+        extension.getExcludeClasses().convention(List.of());
+        extension.getExcludeAnnotations().convention(List.of());
+        extension.getUseDefaultExclusions().convention(true);
 
         TaskProvider<CrapJavaCheckTask> checkTask = project.getTasks().register(
                 "crap-java-check",
@@ -45,6 +49,10 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
                     task.getOutput().convention(extension.getOutput());
                     task.getJunit().convention(extension.getJunit());
                     task.getJunitReport().convention(extension.getJunitReport());
+                    task.getExcludes().convention(extension.getExcludes());
+                    task.getExcludeClasses().convention(extension.getExcludeClasses());
+                    task.getExcludeAnnotations().convention(extension.getExcludeAnnotations());
+                    task.getUseDefaultExclusions().convention(extension.getUseDefaultExclusions());
                 }
         );
 

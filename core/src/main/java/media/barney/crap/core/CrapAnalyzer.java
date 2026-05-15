@@ -5,8 +5,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -19,40 +22,104 @@ final class CrapAnalyzer {
     }
 
     static List<MethodMetrics> analyze(Path projectRoot, List<Path> changedFiles, Path jacocoXml) throws IOException {
+        return analyze(
+                projectRoot,
+                changedFiles,
+                jacocoXml,
+                SourceExclusionMatcher.create(projectRoot, SourceExclusionOptions.defaults()),
+                SourceExclusionAudit.builder()
+        );
+    }
+
+    static List<MethodMetrics> analyze(Path projectRoot,
+                                       List<Path> changedFiles,
+                                       Path jacocoXml,
+                                       SourceExclusionMatcher exclusions,
+                                       SourceExclusionAudit.Builder audit) throws IOException {
         Map<String, CoverageData> coverageMap = JacocoCoverageParser.parse(jacocoXml);
         List<MethodMetrics> metrics = new ArrayList<>();
+        Set<String> excludedClasses = new LinkedHashSet<>();
         Path normalizedProjectRoot = projectRoot.toAbsolutePath().normalize();
 
         for (Path file : changedFiles) {
-            if (!Files.exists(file)) {
-                continue;
-            }
-            Path normalizedFile = file.toAbsolutePath().normalize();
-            String source = Files.readString(file);
-            String primaryClassName = classNameFromSource(file, source);
-            List<MethodDescriptor> methods = JavaMethodParser.parse(primaryClassName, source);
-            for (MethodDescriptor method : methods) {
-                EffectiveCoverage coverage = lookupCoverage(coverageMap, method.className(), method.name(), method.startLine());
-                Double coveragePercent = coverage == null ? null : coverage.percent();
-                String coverageKind = coverage == null ? CoverageData.UNAVAILABLE_KIND : coverage.kind();
-                Double crap = CrapScore.calculate(method.complexity(), coveragePercent);
-                metrics.add(new MethodMetrics(
-                        method.name(),
-                        method.className(),
-                        sourcePath(normalizedProjectRoot, normalizedFile),
-                        method.startLine(),
-                        method.endLine(),
-                        method.complexity(),
-                        coveragePercent,
-                        coverageKind,
-                        crap
-                ));
-            }
+            analyzeFile(
+                    file,
+                    normalizedProjectRoot,
+                    coverageMap,
+                    exclusions,
+                    audit,
+                    excludedClasses,
+                    metrics
+            );
         }
 
         metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
                 Comparator.nullsLast(Comparator.reverseOrder())));
         return metrics;
+    }
+
+    private static void analyzeFile(Path file,
+                                    Path projectRoot,
+                                    Map<String, CoverageData> coverageMap,
+                                    SourceExclusionMatcher exclusions,
+                                    SourceExclusionAudit.Builder audit,
+                                    Set<String> excludedClasses,
+                                    List<MethodMetrics> metrics) throws IOException {
+        if (!Files.exists(file)) {
+            return;
+        }
+        Path normalizedFile = file.toAbsolutePath().normalize();
+        String source = Files.readString(file);
+        String primaryClassName = classNameFromSource(file, source);
+        for (MethodDescriptor method : JavaMethodParser.parse(primaryClassName, source)) {
+            addMetricIfIncluded(method, projectRoot, normalizedFile, coverageMap, exclusions, audit, excludedClasses, metrics);
+        }
+    }
+
+    private static void addMetricIfIncluded(MethodDescriptor method,
+                                            Path projectRoot,
+                                            Path file,
+                                            Map<String, CoverageData> coverageMap,
+                                            SourceExclusionMatcher exclusions,
+                                            SourceExclusionAudit.Builder audit,
+                                            Set<String> excludedClasses,
+                                            List<MethodMetrics> metrics) {
+        Optional<String> classExclusion = exclusions.classExclusionReason(method.className(), method.classAnnotations());
+        if (classExclusion.isPresent()) {
+            recordExcludedClass(method, classExclusion.get(), audit, excludedClasses);
+            return;
+        }
+        metrics.add(methodMetric(method, projectRoot, file, coverageMap));
+    }
+
+    private static void recordExcludedClass(MethodDescriptor method,
+                                            String reason,
+                                            SourceExclusionAudit.Builder audit,
+                                            Set<String> excludedClasses) {
+        if (excludedClasses.add(method.className())) {
+            audit.recordExcludedClass(reason);
+        }
+    }
+
+    private static MethodMetrics methodMetric(MethodDescriptor method,
+                                              Path projectRoot,
+                                              Path file,
+                                              Map<String, CoverageData> coverageMap) {
+        EffectiveCoverage coverage = lookupCoverage(coverageMap, method.className(), method.name(), method.startLine());
+        Double coveragePercent = coverage == null ? null : coverage.percent();
+        String coverageKind = coverage == null ? CoverageData.UNAVAILABLE_KIND : coverage.kind();
+        Double crap = CrapScore.calculate(method.complexity(), coveragePercent);
+        return new MethodMetrics(
+                method.name(),
+                method.className(),
+                sourcePath(projectRoot, file),
+                method.startLine(),
+                method.endLine(),
+                method.complexity(),
+                coveragePercent,
+                coverageKind,
+                crap
+        );
     }
 
     private static String sourcePath(Path projectRoot, Path file) {

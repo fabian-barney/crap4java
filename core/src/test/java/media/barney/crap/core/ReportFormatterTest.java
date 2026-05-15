@@ -438,6 +438,48 @@ class ReportFormatterTest {
         assertEquals("amp&apos'quote\"lt<gt>", propertyValue(parseXml(junit), "methodName"));
     }
 
+    @Test
+    void fullReportsCanIncludeExclusionAudit() throws Exception {
+        CrapReport report = CrapReport.from(
+                List.of(metric("safe", "demo.Sample", 4, 1, 100.0, 1.0)),
+                Main.DEFAULT_THRESHOLD,
+                new SourceExclusionAudit(
+                        2,
+                        1,
+                        List.of(new SourceExclusionAudit.ExclusionCount("default:path:generated-directory", 1)),
+                        List.of(new SourceExclusionAudit.ExclusionCount("default:annotation:Generated", 1))
+                )
+        );
+
+        String json = ReportFormatter.format(report, ReportFormat.JSON);
+        String text = ReportFormatter.format(report, ReportFormat.TEXT);
+        String junit = ReportFormatter.format(report, ReportFormat.JUNIT);
+
+        assertTrue(json.contains("\"exclusions\""));
+        assertTrue(json.contains("\"excludedFiles\": 1"));
+        assertTrue(text.contains("Exclusions:"));
+        assertEquals("1", propertyValue(parseXml(junit), "exclusion.excludedFiles"));
+        assertEquals("1", propertyValue(parseXml(junit), "exclusion.excludedClasses"));
+    }
+
+    @Test
+    void optimizedPrimaryReportsCanOmitExclusionAudit() {
+        CrapReport report = CrapReport.from(
+                List.of(metric("danger", "demo.Sample", 4, 5, 10.0, 9.645)),
+                Main.DEFAULT_THRESHOLD,
+                new SourceExclusionAudit(
+                        2,
+                        1,
+                        List.of(new SourceExclusionAudit.ExclusionCount("default:path:generated-directory", 1)),
+                        List.of()
+                )
+        );
+
+        String json = ReportFormatter.format(report, ReportFormat.JSON, true, true, false);
+
+        assertFalse(json.contains("\"exclusions\""));
+    }
+
     private static CrapReport report(MethodMetrics... metrics) {
         return CrapReport.from(List.of(metrics), Main.DEFAULT_THRESHOLD);
     }

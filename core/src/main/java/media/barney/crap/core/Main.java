@@ -35,7 +35,8 @@ public final class Main {
                 out,
                 err,
                 ReportOptions.textWithOptionalJunit(null),
-                DEFAULT_THRESHOLD
+                DEFAULT_THRESHOLD,
+                SourceExclusionOptions.defaults()
         );
     }
 
@@ -59,7 +60,8 @@ public final class Main {
                 out,
                 err,
                 ReportOptions.textWithOptionalJunit(junitReportPath),
-                threshold
+                threshold,
+                SourceExclusionOptions.defaults()
         );
     }
 
@@ -73,6 +75,34 @@ public final class Main {
                                               @Nullable Path outputPath,
                                               @Nullable Path junitReportPath,
                                               double threshold) throws Exception {
+        return runWithExistingCoverage(
+                modules,
+                reportRoot,
+                out,
+                err,
+                reportFormat,
+                false,
+                failuresOnly,
+                omitRedundancy,
+                outputPath,
+                junitReportPath,
+                threshold,
+                SourceExclusionOptions.defaults()
+        );
+    }
+
+    public static int runWithExistingCoverage(List<ResolvedCoverageModule> modules,
+                                              Path reportRoot,
+                                              PrintStream out,
+                                              PrintStream err,
+                                              String reportFormat,
+                                              boolean agent,
+                                              boolean failuresOnly,
+                                              boolean omitRedundancy,
+                                              @Nullable Path outputPath,
+                                              @Nullable Path junitReportPath,
+                                              double threshold,
+                                              SourceExclusionOptions exclusionOptions) throws Exception {
         Path normalizedReportRoot = reportRoot.toAbsolutePath().normalize();
         return runResolvedModules(
                 modules,
@@ -82,11 +112,13 @@ public final class Main {
                 reportOptionsRelativeToRoot(
                         normalizedReportRoot,
                         reportFormat,
+                        agent,
                         failuresOnly,
                         omitRedundancy,
                         outputPath,
                         junitReportPath),
-                threshold
+                threshold,
+                exclusionOptions
         );
     }
 
@@ -116,21 +148,25 @@ public final class Main {
                                           PrintStream out,
                                           PrintStream err,
                                           ReportOptions reportOptions,
-                                          double threshold) throws Exception {
+                                          double threshold,
+                                          SourceExclusionOptions exclusionOptions) throws Exception {
         Thresholds.validate(threshold);
         writeThresholdWarning(err, threshold);
         List<MethodMetrics> metrics = new ArrayList<>();
+        SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+        SourceExclusionMatcher exclusions = SourceExclusionMatcher.create(reportRoot, exclusionOptions);
         for (ResolvedCoverageModule module : modules) {
-            if (module.sourceFiles().isEmpty()) {
+            List<Path> includedSources = SourceExclusionMatcher.filterFiles(module.sourceFiles(), exclusions, audit);
+            if (includedSources.isEmpty()) {
                 continue;
             }
             if (!Files.exists(module.coverageReport())) {
                 err.println("Warning: JaCoCo XML not found at " + module.coverageReport() + ". Coverage will be N/A.");
             }
-            metrics.addAll(CrapAnalyzer.analyze(reportRoot, module.sourceFiles(), module.coverageReport()));
+            metrics.addAll(CrapAnalyzer.analyze(reportRoot, includedSources, module.coverageReport(), exclusions, audit));
         }
 
-        CrapReport report = CrapReport.from(metrics, threshold);
+        CrapReport report = CrapReport.from(metrics, threshold, audit.build());
         ReportPublisher.publish(report, reportOptions, out);
 
         double max = Main.maxCrap(metrics);
@@ -152,6 +188,10 @@ public final class Main {
                   crap-java --agent                       Apply AI-agent defaults: toon, failures only, omit redundancy
                   crap-java --failures-only[=true|false]  Only include failing methods in the primary report
                   crap-java --omit-redundancy[=true|false]  Omit redundant method fields from the primary report
+                  crap-java --exclude '**/generated/**'    Exclude source paths by glob, repeatable
+                  crap-java --exclude-class '.*MapperImpl' Exclude fully-qualified class names by regex, repeatable
+                  crap-java --exclude-annotation Generated Exclude classes by annotation simple or qualified name, repeatable
+                  crap-java --use-default-exclusions[=true|false]  Enable generated-code defaults (default: true)
                   crap-java --output report.toon          Write the selected report format to a file
                   crap-java --junit-report report.xml     Also write a JUnit XML report for CI
                   crap-java --threshold 6                 Override the CRAP threshold (default: 8.0)
@@ -177,6 +217,7 @@ public final class Main {
 
     private static ReportOptions reportOptionsRelativeToRoot(Path root,
                                                              String reportFormat,
+                                                             boolean agent,
                                                              boolean failuresOnly,
                                                              boolean omitRedundancy,
                                                              @Nullable Path outputPath,
@@ -186,7 +227,8 @@ public final class Main {
                 failuresOnly,
                 omitRedundancy,
                 normalize(root, outputPath),
-                normalize(root, junitReportPath)
+                normalize(root, junitReportPath),
+                !agent
         );
     }
 

@@ -13,8 +13,17 @@ record ReportOptions(
         boolean failuresOnly,
         boolean omitRedundancy,
         @Nullable Path outputPath,
-        @Nullable Path junitReportPath
+        @Nullable Path junitReportPath,
+        boolean includeExclusionAudit
 ) {
+    ReportOptions(ReportFormat format,
+                  boolean failuresOnly,
+                  boolean omitRedundancy,
+                  @Nullable Path outputPath,
+                  @Nullable Path junitReportPath) {
+        this(format, failuresOnly, omitRedundancy, outputPath, junitReportPath, true);
+    }
+
     ReportOptions {
         outputPath = normalize(outputPath);
         junitReportPath = normalize(junitReportPath);
@@ -26,7 +35,7 @@ record ReportOptions(
     }
 
     static ReportOptions textWithOptionalJunit(@Nullable Path junitReportPath) {
-        return new ReportOptions(ReportFormat.TEXT, false, false, null, junitReportPath);
+        return new ReportOptions(ReportFormat.TEXT, false, false, null, junitReportPath, true);
     }
 
     private static @Nullable Path normalize(@Nullable Path path) {

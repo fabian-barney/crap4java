@@ -55,6 +55,10 @@ class CrapJavaGradlePluginTest {
         assertTrue(extension.getJunitReport().get().getAsFile().toPath().normalize().toString()
                 .replace('\\', '/')
                 .endsWith("build/reports/crap-java/TEST-crap-java.xml"));
+        assertEquals(List.of(), extension.getExcludes().get());
+        assertEquals(List.of(), extension.getExcludeClasses().get());
+        assertEquals(List.of(), extension.getExcludeAnnotations().get());
+        assertTrue(extension.getUseDefaultExclusions().get());
         assertEquals(8.0, checkTask.getThreshold().get());
         assertEquals("none", checkTask.getFormat().get());
         assertFalse(checkTask.getAgent().get());
@@ -70,6 +74,10 @@ class CrapJavaGradlePluginTest {
         assertTrue(checkTask.getJunitReport().get().getAsFile().toPath().normalize().toString()
                 .replace('\\', '/')
                 .endsWith("build/reports/crap-java/TEST-crap-java.xml"));
+        assertEquals(List.of(), checkTask.getExcludes().get());
+        assertEquals(List.of(), checkTask.getExcludeClasses().get());
+        assertEquals(List.of(), checkTask.getExcludeAnnotations().get());
+        assertTrue(checkTask.getUseDefaultExclusions().get());
         assertTrue(checkTask.getJunitReportOutput().isPresent());
         assertNotNull(project.getTasks().findByName("jacocoTestReport"));
     }
@@ -103,6 +111,10 @@ class CrapJavaGradlePluginTest {
         extension.getOutput().fileValue(output.toFile());
         extension.getJunit().set(false);
         extension.getJunitReport().fileValue(junitReport.toFile());
+        extension.getExcludes().set(List.of("module-a/**"));
+        extension.getExcludeClasses().set(List.of(".*MapperImpl$"));
+        extension.getExcludeAnnotations().set(List.of("Generated"));
+        extension.getUseDefaultExclusions().set(false);
 
         CrapJavaCheckTask checkTask = (CrapJavaCheckTask) project.getTasks().getByName("crap-java-check");
 
@@ -113,6 +125,10 @@ class CrapJavaGradlePluginTest {
         assertEquals(output.normalize(), checkTask.getOutput().get().getAsFile().toPath().normalize());
         assertFalse(checkTask.getJunit().get());
         assertEquals(junitReport.normalize(), checkTask.getJunitReport().get().getAsFile().toPath().normalize());
+        assertEquals(List.of("module-a/**"), checkTask.getExcludes().get());
+        assertEquals(List.of(".*MapperImpl$"), checkTask.getExcludeClasses().get());
+        assertEquals(List.of("Generated"), checkTask.getExcludeAnnotations().get());
+        assertFalse(checkTask.getUseDefaultExclusions().get());
         assertFalse(checkTask.getJunitReportOutput().isPresent());
     }
 
@@ -132,6 +148,10 @@ class CrapJavaGradlePluginTest {
         assertTrue(checkTask.getJunitReport().get().getAsFile().toPath().normalize().toString()
                 .replace('\\', '/')
                 .endsWith("build/reports/crap-java/custom-crap-java-check/TEST-crap-java.xml"));
+        assertEquals(List.of(), checkTask.getExcludes().get());
+        assertEquals(List.of(), checkTask.getExcludeClasses().get());
+        assertEquals(List.of(), checkTask.getExcludeAnnotations().get());
+        assertTrue(checkTask.getUseDefaultExclusions().get());
         assertTrue(checkTask.getJunitReportOutput().isPresent());
     }
 
@@ -258,6 +278,58 @@ class CrapJavaGradlePluginTest {
 
         assertTrue(Files.exists(jacocoXml));
         assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+    }
+
+    @Test
+    void runCheckAppliesConfiguredSourceExclusions() throws Exception {
+        Path projectRoot = tempDir.toRealPath();
+        Project project = ProjectBuilder.builder().withProjectDir(projectRoot.toFile()).build();
+        Path source = projectRoot.resolve("src/main/java/demo/Sample.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, """
+                package demo;
+
+                class Sample {
+                    int alpha(boolean a) {
+                        if (a) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }
+                """);
+        Path jacocoXml = projectRoot.resolve("build/reports/jacoco/test/jacocoTestReport.xml");
+        Files.createDirectories(jacocoXml.getParent());
+        Files.writeString(jacocoXml, """
+                <report name="demo">
+                  <package name="demo">
+                    <class name="demo/Sample" sourcefilename="Sample.java">
+                      <method name="alpha" desc="(Z)I" line="4">
+                        <counter type="INSTRUCTION" missed="4" covered="0"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        CrapJavaCheckTask task = project.getTasks().register("crap-java-check", CrapJavaCheckTask.class).get();
+        task.getAnalysisRoot().fileValue(projectRoot.toFile());
+        task.getAnalysisSources().from(source);
+        task.getCoverageReports().from(jacocoXml);
+        task.getModuleCoverageReports().put(".", "build/reports/jacoco/test/jacocoTestReport.xml");
+        task.getThreshold().set(1.0);
+        task.getFormat().set("none");
+        task.getAgent().set(false);
+        task.getFailuresOnly().set(false);
+        task.getOmitRedundancy().set(false);
+        task.getUseDefaultExclusions().set(false);
+        task.getExcludes().set(List.of("src/main/java/demo/**"));
+        Path junitReport = projectRoot.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        task.getJunitReport().fileValue(junitReport.toFile());
+
+        task.runCheck();
+
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"0\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
     }
 
     @Test

@@ -122,6 +122,43 @@ class CrapJavaCheckMojoTest {
     }
 
     @Test
+    void usesConfiguredExclusionControls() throws Exception {
+        Path root = tempDir.resolve("root");
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        setField(mojo, "session", session(List.of(project(root, "root")), root));
+        setField(mojo, "project", project(root, "root"));
+        setField(mojo, "excludes", List.of("module-a/**, module-b/**", "**/custom/**"));
+        setField(mojo, "excludeClasses", List.of(".*MapperImpl$"));
+        setField(mojo, "excludeAnnotations", List.of("Generated"));
+        setField(mojo, "useDefaultExclusions", false);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--exclude",
+                "module-a/**",
+                "--exclude",
+                "module-b/**",
+                "--exclude",
+                "**/custom/**",
+                "--exclude-class",
+                ".*MapperImpl$",
+                "--exclude-annotation",
+                "Generated",
+                "--use-default-exclusions=false",
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
+    }
+
+    @Test
     void disablesJunitReport() throws Exception {
         Path root = tempDir.resolve("root");
         writeCoverageReport(root);

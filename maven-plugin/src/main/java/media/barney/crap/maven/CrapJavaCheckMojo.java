@@ -55,6 +55,18 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     @Parameter(property = "crapJava.threshold", defaultValue = "8.0")
     private double threshold = Main.DEFAULT_THRESHOLD;
 
+    @Parameter(property = "crapJava.excludes")
+    private List<String> excludes = new ArrayList<>();
+
+    @Parameter(property = "crapJava.excludeClasses")
+    private List<String> excludeClasses = new ArrayList<>();
+
+    @Parameter(property = "crapJava.excludeAnnotations")
+    private List<String> excludeAnnotations = new ArrayList<>();
+
+    @Parameter(property = "crapJava.useDefaultExclusions", defaultValue = "true")
+    private boolean useDefaultExclusions = true;
+
     public CrapJavaCheckMojo() {
         this((useExistingCoverage, args, projectRoot, out, err) -> useExistingCoverage
                 ? Main.runWithExistingCoverage(args, projectRoot, out, err)
@@ -107,6 +119,12 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         if (omitRedundancy != null) {
             args.add("--omit-redundancy=" + omitRedundancy);
         }
+        addRepeated(args, "--exclude", excludes);
+        addRepeated(args, "--exclude-class", excludeClasses);
+        addRepeated(args, "--exclude-annotation", excludeAnnotations);
+        if (!useDefaultExclusions) {
+            args.add("--use-default-exclusions=false");
+        }
         if (output != null) {
             args.add("--output");
             args.add(configuredPath(executionRoot, output).toString());
@@ -118,6 +136,25 @@ public class CrapJavaCheckMojo extends AbstractMojo {
             args.add(junitReportPath(executionRoot).toString());
         }
         return args.toArray(String[]::new);
+    }
+
+    private static void addRepeated(List<String> args, String option, List<String> values) {
+        for (String value : configuredValues(values)) {
+            args.add(option);
+            args.add(value);
+        }
+    }
+
+    private static List<String> configuredValues(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(Objects::nonNull)
+                .flatMap(value -> List.of(value.split(",")).stream())
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList();
     }
 
     private Path junitReportPath(Path executionRoot) {

@@ -143,6 +143,40 @@ class CrapAnalyzerTest {
     }
 
     @Test
+    void excludesClassesAnnotatedWithGeneratedSimpleNameFromAnyPackage() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                @javax.annotation.processing.Generated("tool")
+                class Sample {
+                    int alpha(boolean a) {
+                        if (a) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, "<report/>");
+        SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+        List<MethodMetrics> result = CrapAnalyzer.analyze(
+                tempDir,
+                List.of(source),
+                jacoco,
+                SourceExclusionMatcher.create(tempDir, SourceExclusionOptions.defaults()),
+                audit
+        );
+
+        assertEquals(List.of(), result);
+        assertEquals(1, audit.build().excludedClassCount());
+    }
+
+    @Test
     void usesSimpleClassNameWhenSourceHasNoPackage() {
         String className = CrapAnalyzer.classNameFromSource(
                 Path.of("src/main/java/Sample.java"),
