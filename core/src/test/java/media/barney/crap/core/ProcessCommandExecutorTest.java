@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -11,9 +12,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,6 +62,29 @@ class ProcessCommandExecutorTest {
         assertTrue(result.stdout().contains(" bytes"));
         assertFalse(result.stdout().contains("first-line"));
         assertTrue(result.stdout().contains("last-line"));
+    }
+
+    @Test
+    void returnsWhenOutputPipeDoesNotFinish() throws Exception {
+        CountDownLatch writeStarted = new CountDownLatch(1);
+        CountDownLatch releaseWrite = new CountDownLatch(1);
+        BlockingOutputStream blockingOutput = new BlockingOutputStream(writeStarted, releaseWrite);
+        ProcessCommandExecutor executor = new ProcessCommandExecutor(
+                Duration.ofSeconds(5),
+                new PrintStream(blockingOutput, true, StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8,
+                Duration.ofMillis(50)
+        );
+
+        try {
+            CommandResult result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> executor.runWithResult(outputCommand(), tempDir));
+
+            assertEquals(3, result.exitCode());
+            assertTrue(writeStarted.await(0, TimeUnit.MILLISECONDS));
+        } finally {
+            releaseWrite.countDown();
+        }
     }
 
     @Test
@@ -117,6 +144,46 @@ class ProcessCommandExecutorTest {
             }
             System.out.println();
             System.out.println("last-line");
+        }
+    }
+
+    private static final class BlockingOutputStream extends OutputStream {
+        private final CountDownLatch writeStarted;
+        private final CountDownLatch releaseWrite;
+
+        BlockingOutputStream(CountDownLatch writeStarted, CountDownLatch releaseWrite) {
+            this.writeStarted = writeStarted;
+            this.releaseWrite = releaseWrite;
+        }
+
+        @Override
+        public void write(int value) {
+            blockUntilReleased();
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) {
+            blockUntilReleased();
+        }
+
+        private void blockUntilReleased() {
+            writeStarted.countDown();
+            boolean interrupted = false;
+            try {
+                while (true) {
+                    try {
+                        if (releaseWrite.await(10, TimeUnit.MILLISECONDS)) {
+                            break;
+                        }
+                    } catch (InterruptedException ex) {
+                        interrupted = true;
+                    }
+                }
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
     }
 }
