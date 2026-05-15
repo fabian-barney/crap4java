@@ -71,7 +71,7 @@ final class JacocoCoverageParser {
                 continue;
             }
             String methodName = method.getAttribute("name");
-            int line = parseInt(method.getAttribute("line"));
+            int line = parseInt("line", method.getAttribute("line"));
             String key = className + "#" + methodName + ":" + line;
             coverage.put(key, data);
         }
@@ -98,16 +98,21 @@ final class JacocoCoverageParser {
     }
 
     private static CoverageCounter readCounter(Element counter) {
-        int missed = parseInt(counter.getAttribute("missed"));
-        int covered = parseInt(counter.getAttribute("covered"));
+        int missed = parseInt("missed", counter.getAttribute("missed"));
+        int covered = parseInt("covered", counter.getAttribute("covered"));
         return new CoverageCounter(missed, covered);
     }
 
-    private static int parseInt(String value) {
+    private static int parseInt(String attributeName, String value) {
         try {
-            return Integer.parseInt(value);
+            int parsed = Integer.parseInt(value);
+            if (parsed < 0) {
+                throw new NumberFormatException("negative value");
+            }
+            return parsed;
         } catch (NumberFormatException ex) {
-            return 0;
+            throw new IllegalArgumentException(
+                    "Invalid JaCoCo integer attribute " + attributeName + "=\"" + value + "\"", ex);
         }
     }
 }
