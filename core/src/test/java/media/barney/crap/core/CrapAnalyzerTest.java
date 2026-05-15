@@ -430,5 +430,61 @@ class CrapAnalyzerTest {
         assertEquals(List.of("alpha", "beta", "gamma"),
                 result.stream().map(MethodMetrics::methodName).toList());
     }
+
+    @Test
+    void sortsEqualScoresBySourcePathThenLineAndMethodName() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path firstSource = sourceRoot.resolve("Alpha.java");
+        Files.writeString(firstSource, """
+                package demo;
+
+                class Alpha {
+                    int zeta() {
+                        return 1;
+                    }
+
+                    int omega() {
+                        return 2;
+                    }
+                }
+                """);
+        Path secondSource = sourceRoot.resolve("Beta.java");
+        Files.writeString(secondSource, """
+                package demo;
+
+                class Beta {
+                    int beta() {
+                        return 1;
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, """
+                <report>
+                  <package name="demo">
+                    <class name="demo/Alpha" sourcefilename="Alpha.java">
+                      <method name="zeta" desc="()I" line="4">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                      <method name="omega" desc="()I" line="8">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                    <class name="demo/Beta" sourcefilename="Beta.java">
+                      <method name="beta" desc="()I" line="4">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        List<MethodMetrics> result = CrapAnalyzer.analyze(tempDir, List.of(secondSource, firstSource), jacoco);
+
+        assertEquals(List.of("zeta", "omega", "beta"),
+                result.stream().map(MethodMetrics::methodName).toList());
+    }
 }
 

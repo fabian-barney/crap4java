@@ -53,8 +53,12 @@ final class CrapAnalyzer {
             );
         }
 
-        metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
-                Comparator.nullsLast(Comparator.reverseOrder())));
+        metrics.sort(Comparator.comparing(
+                        MethodMetrics::crapScore,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(MethodMetrics::sourcePath)
+                .thenComparingInt(MethodMetrics::startLine)
+                .thenComparing(MethodMetrics::methodName));
         return metrics;
     }
 
