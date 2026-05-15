@@ -5,11 +5,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 class ProjectModuleResolverTest {
 
@@ -34,7 +35,7 @@ class ProjectModuleResolverTest {
     @Test
     void resolvesGradleSubmoduleThroughSettingsRoot() throws Exception {
         Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'");
-        Files.writeString(tempDir.resolve("gradlew"), "#!/bin/sh");
+        writeExecutableWrapper(tempDir.resolve("gradlew"), "#!/bin/sh");
         Files.writeString(tempDir.resolve("gradlew.bat"), "@echo off");
         Path moduleRoot = tempDir.resolve("apps/demo");
         Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
@@ -60,7 +61,7 @@ class ProjectModuleResolverTest {
         Path workspace = Files.createTempDirectory(targetDirectory, "relative-workspace-");
         try {
             Files.writeString(workspace.resolve("settings.gradle"), "rootProject.name = 'demo'");
-            Files.writeString(workspace.resolve("gradlew"), "#!/bin/sh");
+            writeExecutableWrapper(workspace.resolve("gradlew"), "#!/bin/sh");
             Files.writeString(workspace.resolve("gradlew.bat"), "@echo off");
             Path moduleRoot = workspace.resolve("apps/demo");
             Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
@@ -77,6 +78,25 @@ class ProjectModuleResolverTest {
         } finally {
             TestFiles.bestEffortDeleteTree(workspace);
         }
+    }
+
+    @Test
+    void nonExecutableUnixWrapperFailsClearly() throws Exception {
+        assumeFalse(isWindows());
+        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'");
+        Path wrapper = tempDir.resolve("gradlew");
+        Files.writeString(wrapper, "#!/bin/sh");
+        Path moduleRoot = tempDir.resolve("apps/demo");
+        Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
+        Files.writeString(source, "class Sample {}");
+
+        ProjectModule module = ProjectModuleResolver.resolve(tempDir, source, BuildToolSelection.GRADLE);
+        IllegalStateException error = assertThrows(IllegalStateException.class, module::coverageCommand);
+
+        assertEquals("Build wrapper exists but is not executable: " + wrapper
+                + ". Run chmod +x gradlew or remove it to use the build tool from PATH.", error.getMessage());
     }
 
     @Test
@@ -128,10 +148,21 @@ class ProjectModuleResolverTest {
     }
 
     private static String gradleWrapperCommand(Path executionRoot) {
-        if (System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
+        if (isWindows()) {
             return executionRoot.resolve("gradlew.bat").toString();
         }
         return executionRoot.resolve("gradlew").toString();
+    }
+
+    private static void writeExecutableWrapper(Path path, String content) throws Exception {
+        Files.writeString(path, content);
+        if (!isWindows()) {
+            path.toFile().setExecutable(true, false);
+        }
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows");
     }
 
 }
