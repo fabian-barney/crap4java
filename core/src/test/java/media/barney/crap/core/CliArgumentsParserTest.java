@@ -73,6 +73,31 @@ class CliArgumentsParserTest {
     }
 
     @Test
+    void valueOptionsAcceptInlineAssignments() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{
+                "--build-tool=maven",
+                "--format=json",
+                "--output=target/crap-java/report.json",
+                "--junit-report=target/crap-java/TEST-crap-java.xml",
+                "--threshold=6.0",
+                "--exclude=module-a/**",
+                "--exclude-class=.*MapperImpl$",
+                "--exclude-annotation=Generated",
+                "--changed"
+        });
+
+        assertEquals(CliMode.CHANGED_SRC, args.mode());
+        assertEquals(BuildToolSelection.MAVEN, args.buildToolSelection());
+        assertEquals(ReportFormat.JSON, args.reportFormat());
+        assertEquals("target/crap-java/report.json", args.outputPath());
+        assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
+        assertEquals(6.0, args.threshold());
+        assertEquals(List.of("module-a/**"), args.exclusionOptions().excludes());
+        assertEquals(List.of(".*MapperImpl$"), args.exclusionOptions().excludeClasses());
+        assertEquals(List.of("Generated"), args.exclusionOptions().excludeAnnotations());
+    }
+
+    @Test
     void sourceExclusionOptionsAreParsed() {
         CliArguments args = CliArgumentsParser.parse(new String[]{
                 "--exclude", "module-a/**",
@@ -315,6 +340,12 @@ class CliArgumentsParserTest {
                 () -> CliArgumentsParser.parse(new String[]{"--exclude-annotation"}));
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--use-default-exclusions=maybe"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude="}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude-class="}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude-annotation="}));
     }
 
     @Test
@@ -327,6 +358,8 @@ class CliArgumentsParserTest {
     void buildToolRequiresValue() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--build-tool"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--build-tool="}));
     }
 
     @Test
