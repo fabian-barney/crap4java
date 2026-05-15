@@ -54,22 +54,29 @@ class ProjectModuleResolverTest {
 
     @Test
     void resolvesGradleWrapperToAbsolutePathForRelativeWorkspaceRoots() throws Exception {
-        Files.writeString(tempDir.resolve("settings.gradle"), "rootProject.name = 'demo'");
-        Files.writeString(tempDir.resolve("gradlew"), "#!/bin/sh");
-        Files.writeString(tempDir.resolve("gradlew.bat"), "@echo off");
-        Path moduleRoot = tempDir.resolve("apps/demo");
-        Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
-        Files.createDirectories(source.getParent());
-        Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
-        Files.writeString(source, "class Sample {}");
-
         Path currentDirectory = Path.of("").toAbsolutePath().normalize();
-        Path relativeWorkspaceRoot = currentDirectory.relativize(tempDir);
-        Path relativeSource = currentDirectory.relativize(source);
+        Path targetDirectory = currentDirectory.resolve("target");
+        Files.createDirectories(targetDirectory);
+        Path workspace = Files.createTempDirectory(targetDirectory, "relative-workspace-");
+        try {
+            Files.writeString(workspace.resolve("settings.gradle"), "rootProject.name = 'demo'");
+            Files.writeString(workspace.resolve("gradlew"), "#!/bin/sh");
+            Files.writeString(workspace.resolve("gradlew.bat"), "@echo off");
+            Path moduleRoot = workspace.resolve("apps/demo");
+            Path source = moduleRoot.resolve("src/main/java/demo/Sample.java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(moduleRoot.resolve("build.gradle.kts"), "plugins { java }");
+            Files.writeString(source, "class Sample {}");
 
-        ProjectModule module = ProjectModuleResolver.resolve(relativeWorkspaceRoot, relativeSource, BuildToolSelection.AUTO);
+            Path relativeWorkspaceRoot = currentDirectory.relativize(workspace);
+            Path relativeSource = currentDirectory.relativize(source);
 
-        assertEquals(gradleWrapperCommand(tempDir), module.coverageCommand().get(0));
+            ProjectModule module = ProjectModuleResolver.resolve(relativeWorkspaceRoot, relativeSource, BuildToolSelection.AUTO);
+
+            assertEquals(gradleWrapperCommand(workspace), module.coverageCommand().get(0));
+        } finally {
+            TestFiles.bestEffortDeleteTree(workspace);
+        }
     }
 
     @Test
@@ -126,5 +133,6 @@ class ProjectModuleResolverTest {
         }
         return executionRoot.resolve("gradlew").toString();
     }
+
 }
 

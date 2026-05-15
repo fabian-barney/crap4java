@@ -537,23 +537,32 @@ class MainTest {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
         Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
-        Path junitReport = tempDir.resolve("legacy-relative-junit.xml").toAbsolutePath().normalize();
-        Path relativeJunitReport = Path.of("").toAbsolutePath().normalize().relativize(junitReport);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        Path currentDirectory = Path.of("").toAbsolutePath().normalize();
+        Path targetDirectory = currentDirectory.resolve("target");
+        Files.createDirectories(targetDirectory);
+        Path reportRoot = Files.createTempDirectory(targetDirectory, "legacy-junit-");
+        try {
+            Path junitReport = reportRoot.resolve("legacy-relative-junit.xml");
+            Path relativeJunitReport = currentDirectory.relativize(junitReport);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exit = Main.runWithExistingCoverage(
-                List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
-                tempDir,
-                new PrintStream(out),
-                new PrintStream(err),
-                relativeJunitReport,
-                8.0
-        );
+            int exit = Main.runWithExistingCoverage(
+                    List.of(new Main.ResolvedCoverageModule(tempDir, jacocoXml, List.of(source))),
+                    tempDir,
+                    new PrintStream(out),
+                    new PrintStream(err),
+                    relativeJunitReport,
+                    8.0
+            );
 
-        assertEquals(2, exit);
-        assertTrue(Files.exists(junitReport));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
+            assertEquals(2, exit);
+            assertTrue(Files.exists(junitReport));
+            assertTrue(Files.readString(junitReport)
+                    .contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
+        } finally {
+            TestFiles.bestEffortDeleteTree(reportRoot);
+        }
     }
 
     @Test
