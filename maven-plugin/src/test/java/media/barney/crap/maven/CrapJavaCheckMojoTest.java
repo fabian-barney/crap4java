@@ -132,8 +132,8 @@ class CrapJavaCheckMojoTest {
         setField(mojo, "project", project(root, "root"));
         setField(mojo, "excludesProperty", "module-a/**, module-b/**");
         setField(mojo, "excludes", List.of("**/custom/**"));
-        setField(mojo, "excludeClassesProperty", ".*MapperImpl$");
-        setField(mojo, "excludeClasses", List.of("demo.Name{1,3}$"));
+        setField(mojo, "excludeClassesProperty", ".*MapperImpl$, demo.Name{1\\,3}$, demo.\\d+$");
+        setField(mojo, "excludeClasses", List.of("demo.Other{1,3}$"));
         setField(mojo, "excludeAnnotationsProperty", "Generated");
         setField(mojo, "excludeAnnotations", List.of("com.acme.Generated"));
         setField(mojo, "useDefaultExclusions", false);
@@ -153,6 +153,10 @@ class CrapJavaCheckMojoTest {
                 ".*MapperImpl$",
                 "--exclude-class",
                 "demo.Name{1,3}$",
+                "--exclude-class",
+                "demo.\\d+$",
+                "--exclude-class",
+                "demo.Other{1,3}$",
                 "--exclude-annotation",
                 "Generated",
                 "--exclude-annotation",

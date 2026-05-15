@@ -342,6 +342,9 @@ mvn verify -DcrapJava.excludeClasses='.*MapperImpl$' -DcrapJava.excludeAnnotatio
 mvn verify -DcrapJava.useDefaultExclusions=false
 ```
 
+In comma-separated Maven properties, escape a literal comma as `\,`, for
+example `-DcrapJava.excludeClasses='demo.Name{1\,3}$'`.
+
 Defaults: `crapJava.format=none`, `crapJava.agent=false`, and
 `crapJava.junit=true`. `crapJava.agent=true` switches the default primary report
 to TOON and defaults `crapJava.failuresOnly` and `crapJava.omitRedundancy` to

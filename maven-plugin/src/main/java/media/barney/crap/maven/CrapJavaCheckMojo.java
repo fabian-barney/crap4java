@@ -165,11 +165,32 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         if (propertyValue == null) {
             return List.of();
         }
-        return List.of(propertyValue.split(",")).stream()
+        return splitEscapedCommaValues(propertyValue).stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
                 .toList();
+    }
+
+    private static List<String> splitEscapedCommaValues(String propertyValue) {
+        List<String> values = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int index = 0; index < propertyValue.length(); index++) {
+            char character = propertyValue.charAt(index);
+            if (character == '\\' && index + 1 < propertyValue.length() && propertyValue.charAt(index + 1) == ',') {
+                current.append(',');
+                index++;
+                continue;
+            }
+            if (character == ',') {
+                values.add(current.toString());
+                current.setLength(0);
+                continue;
+            }
+            current.append(character);
+        }
+        values.add(current.toString());
+        return values;
     }
 
     private static List<String> configuredListValues(List<String> values) {

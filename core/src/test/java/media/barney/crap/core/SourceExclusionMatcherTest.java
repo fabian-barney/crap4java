@@ -130,4 +130,14 @@ class SourceExclusionMatcherTest {
         assertTrue(matcher.classExclusionReason("demo.Sample", List.of("com.acme.Generated")).isPresent());
         assertFalse(matcher.classExclusionReason("demo.Sample", List.of("com.acme.GeneratedValue")).isPresent());
     }
+
+    @Test
+    void userQualifiedAnnotationMatchesCapturedSimpleName() {
+        SourceExclusionMatcher matcher = SourceExclusionMatcher.create(
+                tempDir,
+                new SourceExclusionOptions(List.of(), List.of(), List.of("com.acme.Generated"), false)
+        );
+
+        assertTrue(matcher.classExclusionReason("demo.Sample", List.of("Generated")).isPresent());
+    }
 }

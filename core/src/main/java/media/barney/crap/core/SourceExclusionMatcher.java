@@ -139,10 +139,7 @@ final class SourceExclusionMatcher {
     }
 
     private static boolean matchesAnnotation(String annotationName, String excludedName) {
-        if (excludedName.contains(".")) {
-            return annotationName.equals(excludedName);
-        }
-        return simpleName(annotationName).equals(excludedName);
+        return annotationName.equals(excludedName) || simpleName(annotationName).equals(simpleName(excludedName));
     }
 
     private static String simpleName(String name) {
