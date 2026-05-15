@@ -7,11 +7,9 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 final class ProcessCommandExecutor implements CommandExecutor {
 
-    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
     private static final int CAPTURE_LIMIT_BYTES = 64 * 1024;
 
     private final Duration timeout;
@@ -43,24 +41,17 @@ final class ProcessCommandExecutor implements CommandExecutor {
 
     @Override
     public CommandResult runWithResult(List<String> command, Path directory) throws Exception {
+        ProcessTimeout.validate(timeout);
         Process process = new ProcessBuilder(command)
                 .directory(directory.toFile())
                 .start();
         process.getOutputStream().close();
         OutputPipe stdout = pipe(process.getInputStream(), "stdout");
         OutputPipe stderr = pipe(process.getErrorStream(), "stderr");
-        if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-            process.destroyForcibly();
-            if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-                throw new IllegalStateException(
-                        "Command timed out after " + timeout + " and could not be terminated within "
-                                + TERMINATION_TIMEOUT + ": " + String.join(" ", command));
-            }
-            throw new IllegalStateException("Command timed out after " + timeout + ": " + String.join(" ", command));
-        }
+        int exit = ProcessTimeout.waitForOrTerminate(process, command, timeout, "Command");
         stdout.join();
         stderr.join();
-        return new CommandResult(process.exitValue(), stdout.output(), stderr.output());
+        return new CommandResult(exit, stdout.output(), stderr.output());
     }
 
     private OutputPipe pipe(InputStream input, String label) {
