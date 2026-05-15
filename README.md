@@ -123,7 +123,7 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 ```
 
 Value-taking long options may also be written with inline assignment, such as
-`--build-tool=maven`, `--format=json`, or `--exclude=module-a/**`.
+`--build-tool=maven`, `--format=json`, or `--exclude='module-a/**'`.
 
 Examples:
 
