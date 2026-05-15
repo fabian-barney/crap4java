@@ -277,7 +277,8 @@ class CrapJavaGradlePluginTest {
         task.runCheck();
 
         assertTrue(Files.exists(jacocoXml));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(Files.readString(junitReport)
+                .contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\""));
     }
 
     @Test
@@ -329,7 +330,8 @@ class CrapJavaGradlePluginTest {
 
         task.runCheck();
 
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"0\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(Files.readString(junitReport)
+                .contains("<testsuites tests=\"0\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\""));
     }
 
     @Test

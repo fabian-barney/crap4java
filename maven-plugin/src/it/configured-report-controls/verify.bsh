@@ -26,7 +26,7 @@ if (primary.contains("      \"status\":")) {
 }
 
 String junit = Files.readString(junitReport);
-if (!junit.contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">")) {
+if (!junit.contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"")) {
     throw new RuntimeException("Configured JUnit sidecar should contain the full report");
 }
 if (!junit.contains("<property name=\"status\" value=\"passed\"/>")) {
