@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
@@ -152,6 +153,27 @@ class ChangedFileDetectorTest {
         assertEquals(List.of(renamed), changed);
     }
 
+    @Test
+    void timesOutHungGitStatus() {
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> ChangedFileDetector.changedJavaFiles(
+                        tempDir,
+                        javaSleepingGitCommand(),
+                        Duration.ofMillis(100)
+                ));
+
+        assertTrue(Objects.requireNonNull(error.getMessage())
+                .contains("Changed-file detection command timed out after PT0.1S"));
+    }
+
+    @Test
+    void rejectsNonPositiveGitStatusTimeout() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> ChangedFileDetector.changedJavaFiles(tempDir, javaSleepingGitCommand(), Duration.ZERO));
+
+        assertTrue(Objects.requireNonNull(error.getMessage()).contains("Command timeout must be positive"));
+    }
+
     private static void run(Path dir, String... command) throws IOException, InterruptedException {
         Process process = new ProcessBuilder(command)
                 .directory(dir.toFile())
@@ -160,6 +182,16 @@ class ChangedFileDetectorTest {
         if (process.waitFor() != 0) {
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             throw new IllegalStateException(output);
+        }
+    }
+
+    private static List<String> javaSleepingGitCommand() {
+        return TestJavaCommand.command(SleepingGit.class);
+    }
+
+    public static final class SleepingGit {
+        public static void main(String[] args) throws InterruptedException {
+            Thread.sleep(Duration.ofSeconds(5).toMillis());
         }
     }
 }
