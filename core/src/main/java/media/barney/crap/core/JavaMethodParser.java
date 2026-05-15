@@ -34,7 +34,7 @@ final class JavaMethodParser {
     private JavaMethodParser() {
     }
 
-    static List<MethodDescriptor> parse(String className, String source) {
+    static List<MethodDescriptor> parse(String sourceName, String source) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("No system Java compiler is available");
@@ -47,7 +47,7 @@ final class JavaMethodParser {
                     null,
                     List.of("-proc:none"),
                     null,
-                    List.of(new SourceFileObject(className, source))
+                    List.of(new SourceFileObject(sourceName, source))
             );
             Iterable<? extends CompilationUnitTree> units = task.parse();
             return collectMethods(task, units);
@@ -56,15 +56,15 @@ final class JavaMethodParser {
         }
     }
 
-    static String sourcePath(String className) {
-        String normalized = className.endsWith(".java")
-                ? className.substring(0, className.length() - ".java".length())
-                : className;
+    static String sourcePath(String sourceName) {
+        String normalized = sourceName.endsWith(".java")
+                ? sourceName.substring(0, sourceName.length() - ".java".length())
+                : sourceName;
         return normalized.replace('.', '/') + ".java";
     }
 
-    static URI sourceUri(String className) {
-        return URI.create("string:///" + sourcePath(className));
+    static URI sourceUri(String sourceName) {
+        return URI.create("string:///" + sourcePath(sourceName));
     }
 
     static boolean hasKnownSourceRange(long start, long endExclusive) {
@@ -130,7 +130,7 @@ final class JavaMethodParser {
 
         @Override
         public Void visitMethod(MethodTree node, Void unused) {
-            if (node.getBody() == null || node.getReturnType() == null) {
+            if (node.getBody() == null) {
                 return null;
             }
 
@@ -253,8 +253,8 @@ final class JavaMethodParser {
     private static final class SourceFileObject extends SimpleJavaFileObject {
         private final String source;
 
-        private SourceFileObject(String className, String source) {
-            super(uriFor(className), Kind.SOURCE);
+        private SourceFileObject(String sourceName, String source) {
+            super(uriFor(sourceName), Kind.SOURCE);
             this.source = source;
         }
 
@@ -263,8 +263,8 @@ final class JavaMethodParser {
             return source;
         }
 
-        private static URI uriFor(String className) {
-            return sourceUri(className);
+        private static URI uriFor(String sourceName) {
+            return sourceUri(sourceName);
         }
     }
 }

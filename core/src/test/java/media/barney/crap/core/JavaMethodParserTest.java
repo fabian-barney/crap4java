@@ -53,10 +53,12 @@ class JavaMethodParserTest {
     }
 
     @Test
-    void ignoresConstructorsAndAbstractMethods() {
+    void extractsConstructorsAndIgnoresAbstractMethods() {
         String source = """
                 abstract class Sample {
-                    Sample() {
+                    Sample(boolean flag) {
+                        if (flag) {
+                        }
                     }
 
                     abstract int missing();
@@ -69,7 +71,10 @@ class JavaMethodParserTest {
 
         List<MethodDescriptor> methods = JavaMethodParser.parse("Sample", source);
 
-        assertEquals(List.of(new MethodDescriptor("Sample", "present", 7, 9, 1)), methods);
+        assertEquals(List.of(
+                new MethodDescriptor("Sample", "<init>", 2, 5, 2),
+                new MethodDescriptor("Sample", "present", 9, 11, 1)
+        ), methods);
     }
 
     @Test
@@ -247,6 +252,25 @@ class JavaMethodParserTest {
                 new MethodDescriptor("Sample", "nested", 2, 29, 13),
                 new MethodDescriptor("Sample", "switched", 31, 41, 4)
         ), methods);
+    }
+
+    @Test
+    void countsOneDecisionPerSwitchCaseClauseIncludingDefault() {
+        String source = """
+                class Sample {
+                    int classify(int value) {
+                        return switch (value) {
+                            case 1, 2, 3 -> 1;
+                            case 4 -> 2;
+                            default -> 0;
+                        };
+                    }
+                }
+                """;
+
+        List<MethodDescriptor> methods = JavaMethodParser.parse("Sample", source);
+
+        assertEquals(List.of(new MethodDescriptor("Sample", "classify", 2, 8, 4)), methods);
     }
 
     @Test
