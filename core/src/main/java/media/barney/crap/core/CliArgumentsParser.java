@@ -37,7 +37,8 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
-                    List.of()
+                    List.of(),
+                    state.exclusionOptions
             );
         }
         boolean changed = state.changed;
@@ -54,7 +55,8 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
-                    List.of()
+                    List.of(),
+                    state.exclusionOptions
             );
         }
         if (values.isEmpty()) {
@@ -68,7 +70,8 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
-                    List.of()
+                    List.of(),
+                    state.exclusionOptions
             );
         }
         return new CliArguments(
@@ -81,7 +84,8 @@ final class CliArgumentsParser {
                 state.omitRedundancy,
                 state.outputPath,
                 state.junitReportPath,
-                List.copyOf(values)
+                List.copyOf(values),
+                state.exclusionOptions
         );
     }
 
@@ -126,36 +130,89 @@ final class CliArgumentsParser {
             state.omitRedundancySeen = true;
             return index;
         }
+        if (isBooleanOption(arg, "--use-default-exclusions")) {
+            state.useDefaultExclusions = parseBooleanOption(
+                    arg,
+                    "--use-default-exclusions",
+                    state.useDefaultExclusionsSeen
+            );
+            state.useDefaultExclusionsSeen = true;
+            return index;
+        }
         return parseValuedOption(args, index, state, arg);
     }
 
     private static int parseValuedOption(String[] args, int index, ParseStateBuilder state, String arg) {
-        if ("--build-tool".equals(arg)) {
-            state.buildToolSelection = parseBuildTool(args, index, state.buildToolSeen);
-            state.buildToolSeen = true;
-            return index + 1;
-        }
-        if ("--format".equals(arg)) {
-            state.reportFormat = parseReportFormat(args, index, state.reportFormatSeen);
-            state.reportFormatSeen = true;
-            return index + 1;
-        }
-        if ("--output".equals(arg)) {
-            state.outputPath = parsePathOption(args, index, state.outputPathSeen, "--output");
-            state.outputPathSeen = true;
-            return index + 1;
-        }
-        if ("--junit-report".equals(arg)) {
-            state.junitReportPath = parsePathOption(args, index, state.junitReportPathSeen, "--junit-report");
-            state.junitReportPathSeen = true;
-            return index + 1;
-        }
-        if ("--threshold".equals(arg)) {
-            state.threshold = parseThreshold(args, index, state.thresholdSeen);
-            state.thresholdSeen = true;
+        if (parseBuildToolOption(args, index, state, arg)
+                || parseReportFormatOption(args, index, state, arg)
+                || parseOutputOption(args, index, state, arg)
+                || parseJunitReportOption(args, index, state, arg)
+                || parseThresholdOption(args, index, state, arg)
+                || parseExclusionOption(args, index, state, arg)) {
             return index + 1;
         }
         throw new IllegalArgumentException("Unknown option: " + arg);
+    }
+
+    private static boolean parseBuildToolOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--build-tool".equals(arg)) {
+            state.buildToolSelection = parseBuildTool(args, index, state.buildToolSeen);
+            state.buildToolSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseReportFormatOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--format".equals(arg)) {
+            state.reportFormat = parseReportFormat(args, index, state.reportFormatSeen);
+            state.reportFormatSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseOutputOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--output".equals(arg)) {
+            state.outputPath = parsePathOption(args, index, state.outputPathSeen, "--output");
+            state.outputPathSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseJunitReportOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--junit-report".equals(arg)) {
+            state.junitReportPath = parsePathOption(args, index, state.junitReportPathSeen, "--junit-report");
+            state.junitReportPathSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseThresholdOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--threshold".equals(arg)) {
+            state.threshold = parseThreshold(args, index, state.thresholdSeen);
+            state.thresholdSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseExclusionOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--exclude".equals(arg)) {
+            state.excludes.add(parseListOption(args, index, "--exclude", "a glob"));
+            return true;
+        }
+        if ("--exclude-class".equals(arg)) {
+            state.excludeClasses.add(parseListOption(args, index, "--exclude-class", "a regex"));
+            return true;
+        }
+        if ("--exclude-annotation".equals(arg)) {
+            state.excludeAnnotations.add(parseListOption(args, index, "--exclude-annotation", "an annotation name"));
+            return true;
+        }
+        return false;
     }
 
     private static boolean parseAgent(boolean agentSeen) {
@@ -230,6 +287,17 @@ final class CliArgumentsParser {
         }
     }
 
+    private static String parseListOption(String[] args, int index, String option, String valueDescription) {
+        if (index + 1 >= args.length) {
+            throw new IllegalArgumentException(option + " requires " + valueDescription);
+        }
+        String value = args[index + 1].trim();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException(option + " requires " + valueDescription);
+        }
+        return value;
+    }
+
     private static void ensureChangedIsNotCombined(boolean changed, List<String> values) {
         if (changed && !values.isEmpty()) {
             throw new IllegalArgumentException("--changed cannot be combined with file arguments");
@@ -246,6 +314,7 @@ final class CliArgumentsParser {
                               boolean omitRedundancy,
                               @Nullable String outputPath,
                               @Nullable String junitReportPath,
+                              SourceExclusionOptions exclusionOptions,
                               List<String> fileArgs) {
     }
 
@@ -264,6 +333,11 @@ final class CliArgumentsParser {
         private boolean failuresOnlySeen;
         private boolean omitRedundancy;
         private boolean omitRedundancySeen;
+        private boolean useDefaultExclusions = true;
+        private boolean useDefaultExclusionsSeen;
+        private final List<String> excludes = new ArrayList<>();
+        private final List<String> excludeClasses = new ArrayList<>();
+        private final List<String> excludeAnnotations = new ArrayList<>();
         private @Nullable String outputPath;
         private boolean outputPathSeen;
         private @Nullable String junitReportPath;
@@ -284,6 +358,12 @@ final class CliArgumentsParser {
                     effectiveOmitRedundancy,
                     outputPath,
                     junitReportPath,
+                    new SourceExclusionOptions(
+                            excludes,
+                            excludeClasses,
+                            excludeAnnotations,
+                            useDefaultExclusions
+                    ),
                     values
             );
         }

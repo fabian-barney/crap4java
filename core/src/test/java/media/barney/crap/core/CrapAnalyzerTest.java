@@ -143,6 +143,97 @@ class CrapAnalyzerTest {
     }
 
     @Test
+    void excludesClassesAnnotatedWithGeneratedSimpleNameFromAnyPackage() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                @javax.annotation.processing.Generated("tool")
+                class Sample {
+                    int alpha(boolean a) {
+                        if (a) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, "<report/>");
+        SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+        List<MethodMetrics> result = CrapAnalyzer.analyze(
+                tempDir,
+                List.of(source),
+                jacoco,
+                SourceExclusionMatcher.create(tempDir, SourceExclusionOptions.defaults()),
+                audit
+        );
+
+        assertEquals(List.of(), result);
+        assertEquals(1, audit.build().excludedClassCount());
+    }
+
+    @Test
+    void generatedAnnotationExclusionDoesNotApplyOuterAnnotationsToNestedClasses() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Outer.java");
+        Files.writeString(source, """
+                package demo;
+
+                @interface Generated {
+                }
+
+                @Generated
+                class Outer {
+                    int outer() {
+                        return 1;
+                    }
+
+                    static class Inner {
+                        int inner() {
+                            return 2;
+                        }
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, """
+                <report>
+                  <package name="demo">
+                    <class name="demo/Outer" sourcefilename="Outer.java">
+                      <method name="outer" desc="()I" line="8">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                    <class name="demo/Outer$Inner" sourcefilename="Outer.java">
+                      <method name="inner" desc="()I" line="13">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+        SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+
+        List<MethodMetrics> result = CrapAnalyzer.analyze(
+                tempDir,
+                List.of(source),
+                jacoco,
+                SourceExclusionMatcher.create(tempDir, SourceExclusionOptions.defaults()),
+                audit
+        );
+
+        assertEquals(List.of("inner"), result.stream().map(MethodMetrics::methodName).toList());
+        assertEquals("demo.Outer$Inner", result.get(0).className());
+        assertEquals(1, audit.build().excludedClassCount());
+    }
+
+    @Test
     void usesSimpleClassNameWhenSourceHasNoPackage() {
         String className = CrapAnalyzer.classNameFromSource(
                 Path.of("src/main/java/Sample.java"),

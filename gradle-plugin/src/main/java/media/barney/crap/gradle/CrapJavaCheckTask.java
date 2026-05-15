@@ -1,6 +1,7 @@
 package media.barney.crap.gradle;
 
 import media.barney.crap.core.Main;
+import media.barney.crap.core.SourceExclusionOptions;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
@@ -10,6 +11,7 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.MapProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Input;
@@ -90,6 +92,10 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         getOmitRedundancy().convention(getAgent());
         getJunit().convention(true);
         getJunitReport().convention(defaultJunitReport);
+        getExcludes().convention(List.of());
+        getExcludeClasses().convention(List.of());
+        getExcludeAnnotations().convention(List.of());
+        getUseDefaultExclusions().convention(true);
     }
 
     @Internal
@@ -131,6 +137,18 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
 
     @Internal
     public abstract RegularFileProperty getJunitReport();
+
+    @Input
+    public abstract ListProperty<String> getExcludes();
+
+    @Input
+    public abstract ListProperty<String> getExcludeClasses();
+
+    @Input
+    public abstract ListProperty<String> getExcludeAnnotations();
+
+    @Input
+    public abstract Property<Boolean> getUseDefaultExclusions();
 
     @Input
     @Optional
@@ -213,11 +231,18 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
                         out,
                         err,
                         getFormat().get(),
+                        getAgent().get(),
                         getFailuresOnly().get(),
                         getOmitRedundancy().get(),
                         configuredOutputPath,
                         configuredJunitReportPath,
-                        getThreshold().get()
+                        getThreshold().get(),
+                        new SourceExclusionOptions(
+                                getExcludes().get(),
+                                getExcludeClasses().get(),
+                                getExcludeAnnotations().get(),
+                                getUseDefaultExclusions().get()
+                        )
                 );
             } catch (Exception exception) {
                 rememberChangedReportState(

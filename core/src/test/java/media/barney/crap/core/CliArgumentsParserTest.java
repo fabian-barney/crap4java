@@ -73,6 +73,23 @@ class CliArgumentsParserTest {
     }
 
     @Test
+    void sourceExclusionOptionsAreParsed() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{
+                "--exclude", "module-a/**",
+                "--exclude", "**/generated/**",
+                "--exclude-class", ".*MapperImpl$",
+                "--exclude-annotation", "Generated",
+                "--use-default-exclusions=false",
+                "--changed"
+        });
+
+        assertEquals(List.of("module-a/**", "**/generated/**"), args.exclusionOptions().excludes());
+        assertEquals(List.of(".*MapperImpl$"), args.exclusionOptions().excludeClasses());
+        assertEquals(List.of("Generated"), args.exclusionOptions().excludeAnnotations());
+        assertFalse(args.exclusionOptions().useDefaultExclusions());
+    }
+
+    @Test
     void agentModeDefaultsToToon() {
         CliArguments args = CliArgumentsParser.parse(new String[]{"--agent", "--changed"});
 
@@ -286,6 +303,18 @@ class CliArgumentsParserTest {
     void junitReportCanOnlyBeProvidedOnce() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--junit-report", "one.xml", "--junit-report", "two.xml"}));
+    }
+
+    @Test
+    void sourceExclusionOptionsRequireValues() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude-class"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--exclude-annotation"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--use-default-exclusions=maybe"}));
     }
 
     @Test

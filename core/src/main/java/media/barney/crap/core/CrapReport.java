@@ -6,14 +6,23 @@ import org.jspecify.annotations.Nullable;
 record CrapReport(
         String status,
         double threshold,
-        List<MethodReport> methods
+        List<MethodReport> methods,
+        SourceExclusionAudit exclusions
 ) {
+    CrapReport(String status, double threshold, List<MethodReport> methods) {
+        this(status, threshold, methods, SourceExclusionAudit.empty());
+    }
+
     static CrapReport from(List<MethodMetrics> metrics, double threshold) {
+        return from(metrics, threshold, SourceExclusionAudit.empty());
+    }
+
+    static CrapReport from(List<MethodMetrics> metrics, double threshold, SourceExclusionAudit exclusions) {
         double validatedThreshold = Thresholds.validate(threshold);
         List<MethodReport> methods = metrics.stream()
                 .map(metric -> MethodReport.from(metric, validatedThreshold))
                 .toList();
-        return new CrapReport(status(methods), validatedThreshold, methods);
+        return new CrapReport(status(methods), validatedThreshold, methods, exclusions);
     }
 
     private static String status(List<MethodReport> methods) {

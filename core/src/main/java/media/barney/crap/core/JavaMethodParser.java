@@ -83,6 +83,7 @@ final class JavaMethodParser {
         private final SourcePositions positions;
         private final List<MethodDescriptor> methods;
         private final List<String> enclosingClassNames = new ArrayList<>();
+        private final List<List<String>> enclosingClassAnnotations = new ArrayList<>();
 
         private MethodScanner(CompilationUnitTree unit,
                               SourcePositions positions,
@@ -100,9 +101,11 @@ final class JavaMethodParser {
                 return null;
             }
             enclosingClassNames.add(simpleName);
+            enclosingClassAnnotations.add(classAnnotations(node));
             try {
                 return super.visitClass(node, null);
             } finally {
+                enclosingClassAnnotations.remove(enclosingClassAnnotations.size() - 1);
                 enclosingClassNames.remove(enclosingClassNames.size() - 1);
             }
         }
@@ -118,8 +121,21 @@ final class JavaMethodParser {
             int startLine = lineNumber(start);
             int endLine = lineNumber(Math.decrementExact((int) bodyEndExclusive));
             int complexity = ComplexityCounter.count(node);
-            methods.add(new MethodDescriptor(currentClassName(), node.getName().toString(), startLine, endLine, complexity));
+            methods.add(new MethodDescriptor(
+                    currentClassName(),
+                    node.getName().toString(),
+                    startLine,
+                    endLine,
+                    complexity,
+                    currentClassAnnotations()
+            ));
             return null;
+        }
+
+        private static List<String> classAnnotations(ClassTree node) {
+            return node.getModifiers().getAnnotations().stream()
+                    .map(annotation -> annotation.getAnnotationType().toString())
+                    .toList();
         }
 
         private int lineNumber(long position) {
@@ -132,6 +148,13 @@ final class JavaMethodParser {
                 return simpleName;
             }
             return packageName + "." + simpleName;
+        }
+
+        private List<String> currentClassAnnotations() {
+            if (enclosingClassAnnotations.isEmpty()) {
+                return List.of();
+            }
+            return enclosingClassAnnotations.get(enclosingClassAnnotations.size() - 1);
         }
     }
 
