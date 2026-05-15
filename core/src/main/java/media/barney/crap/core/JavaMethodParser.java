@@ -19,6 +19,7 @@ import com.sun.source.util.TreeScanner;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 
+import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
@@ -66,15 +67,32 @@ final class JavaMethodParser {
         return URI.create("string:///" + sourcePath(sourceName));
     }
 
+    static boolean hasKnownSourceRange(long start, long endExclusive) {
+        return start != Diagnostic.NOPOS
+                && endExclusive != Diagnostic.NOPOS
+                && endExclusive > start;
+    }
+
     private static List<MethodDescriptor> collectMethods(JavacTask task,
                                                          Iterable<? extends CompilationUnitTree> units) {
-        Trees trees = Trees.instance(task);
         List<MethodDescriptor> methods = new ArrayList<>();
+        Trees trees = Trees.instance(task);
         for (CompilationUnitTree unit : units) {
-            SourcePositions positions = trees.getSourcePositions();
-            new MethodScanner(unit, positions, methods).scan(unit, null);
+            collectMethods(unit, trees.getSourcePositions(), methods);
         }
         return methods;
+    }
+
+    static List<MethodDescriptor> collectMethods(CompilationUnitTree unit, SourcePositions positions) {
+        List<MethodDescriptor> methods = new ArrayList<>();
+        collectMethods(unit, positions, methods);
+        return methods;
+    }
+
+    private static void collectMethods(CompilationUnitTree unit,
+                                       SourcePositions positions,
+                                       List<MethodDescriptor> methods) {
+        new MethodScanner(unit, positions, methods).scan(unit, null);
     }
 
     private static final class MethodScanner extends TreePathScanner<Void, Void> {
@@ -112,14 +130,17 @@ final class JavaMethodParser {
 
         @Override
         public Void visitMethod(MethodTree node, Void unused) {
-            if (node.getBody() == null || node.getReturnType() == null) {
+            if (node.getBody() == null) {
                 return null;
             }
 
             long start = positions.getStartPosition(unit, node);
             long bodyEndExclusive = positions.getEndPosition(unit, node.getBody());
+            if (!hasKnownSourceRange(start, bodyEndExclusive)) {
+                return null;
+            }
             int startLine = lineNumber(start);
-            int endLine = lineNumber(Math.decrementExact((int) bodyEndExclusive));
+            int endLine = lineNumber(Math.decrementExact(bodyEndExclusive));
             int complexity = ComplexityCounter.count(node);
             methods.add(new MethodDescriptor(
                     currentClassName(),

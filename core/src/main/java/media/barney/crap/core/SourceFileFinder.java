@@ -23,6 +23,8 @@ final class SourceFileFinder {
         List<Path> javaFiles = new ArrayList<>();
         for (Path sourceRoot : productionSourceRoots(projectRoot)) {
             try (var stream = Files.walk(sourceRoot)) {
+                // Directory symlinks are not followed because FOLLOW_LINKS is not passed.
+                // Symlinked files are kept as link paths when Files.isRegularFile follows them.
                 stream.filter(Files::isRegularFile)
                         .filter(path -> path.toString().endsWith(".java"))
                         .forEach(javaFiles::add);
