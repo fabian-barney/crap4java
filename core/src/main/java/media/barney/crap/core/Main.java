@@ -209,7 +209,7 @@ public final class Main {
                   Relative --output and --junit-report paths resolve against the project root
                   Absolute paths and normalized paths outside the project root are honored
 
-                Value options may also be written as --option=value.
+                Long options that take a value may also be written as --option=value.
                 """;
     }
 

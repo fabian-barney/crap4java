@@ -91,7 +91,7 @@ class CliArgumentsParserTest {
         assertEquals(ReportFormat.JSON, args.reportFormat());
         assertEquals("target/crap-java/report.json", args.outputPath());
         assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
-        assertEquals(6.0, args.threshold());
+        assertEquals(6.0, args.threshold(), 1.0e-9);
         assertEquals(List.of("module-a/**"), args.exclusionOptions().excludes());
         assertEquals(List.of(".*MapperImpl$"), args.exclusionOptions().excludeClasses());
         assertEquals(List.of("Generated"), args.exclusionOptions().excludeAnnotations());

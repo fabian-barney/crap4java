@@ -184,7 +184,7 @@ final class CliArgumentsParser {
                                              ParseStateBuilder state,
                                              AssignedOption option) {
         if ("--output".equals(option.name())) {
-            state.outputPath = parsePathOption(args, index, option, state.outputPathSeen, "--output");
+            state.outputPath = parsePathOption(args, index, option, state.outputPathSeen);
             state.outputPathSeen = true;
             return true;
         }
@@ -196,7 +196,7 @@ final class CliArgumentsParser {
                                                   ParseStateBuilder state,
                                                   AssignedOption option) {
         if ("--junit-report".equals(option.name())) {
-            state.junitReportPath = parsePathOption(args, index, option, state.junitReportPathSeen, "--junit-report");
+            state.junitReportPath = parsePathOption(args, index, option, state.junitReportPathSeen);
             state.junitReportPathSeen = true;
             return true;
         }
@@ -220,11 +220,11 @@ final class CliArgumentsParser {
                                                 ParseStateBuilder state,
                                                 AssignedOption option) {
         if ("--exclude".equals(option.name())) {
-            state.excludes.add(parseListOption(args, index, option, "--exclude", "a glob"));
+            state.excludes.add(parseListOption(args, index, option, "a glob"));
             return true;
         }
         if ("--exclude-class".equals(option.name())) {
-            state.excludeClasses.add(parseListOption(args, index, option, "--exclude-class", "a regex"));
+            state.excludeClasses.add(parseListOption(args, index, option, "a regex"));
             return true;
         }
         if ("--exclude-annotation".equals(option.name())) {
@@ -232,7 +232,6 @@ final class CliArgumentsParser {
                     args,
                     index,
                     option,
-                    "--exclude-annotation",
                     "an annotation name"
             ));
             return true;
@@ -279,7 +278,6 @@ final class CliArgumentsParser {
                 args,
                 index,
                 option,
-                "--build-tool",
                 "one of: auto, maven, gradle"
         ));
     }
@@ -291,18 +289,17 @@ final class CliArgumentsParser {
         if (reportFormatSeen) {
             throw new IllegalArgumentException("--format can only be provided once");
         }
-        return ReportFormat.parse(optionValue(args, index, option, "--format", "one of: toon, json, text, junit, none"));
+        return ReportFormat.parse(optionValue(args, index, option, "one of: toon, json, text, junit, none"));
     }
 
     private static String parsePathOption(String[] args,
                                           int index,
                                           AssignedOption assignedOption,
-                                          boolean seen,
-                                          String option) {
+                                          boolean seen) {
         if (seen) {
-            throw new IllegalArgumentException(option + " can only be provided once");
+            throw new IllegalArgumentException(assignedOption.name() + " can only be provided once");
         }
-        return optionValue(args, index, assignedOption, option, "a path");
+        return optionValue(args, index, assignedOption, "a path");
     }
 
     private static double parseThreshold(String[] args,
@@ -317,7 +314,6 @@ final class CliArgumentsParser {
                     args,
                     index,
                     option,
-                    "--threshold",
                     "a finite number greater than 0"
             ));
         } catch (IllegalArgumentException ex) {
@@ -328,11 +324,10 @@ final class CliArgumentsParser {
     private static String parseListOption(String[] args,
                                           int index,
                                           AssignedOption assignedOption,
-                                          String option,
                                           String valueDescription) {
-        String value = optionValue(args, index, assignedOption, option, valueDescription).trim();
+        String value = optionValue(args, index, assignedOption, valueDescription).trim();
         if (value.isEmpty()) {
-            throw new IllegalArgumentException(option + " requires " + valueDescription);
+            throw new IllegalArgumentException(assignedOption.name() + " requires " + valueDescription);
         }
         return value;
     }
@@ -340,17 +335,16 @@ final class CliArgumentsParser {
     private static String optionValue(String[] args,
                                       int index,
                                       AssignedOption option,
-                                      String optionName,
                                       String valueDescription) {
         @Nullable String inlineValue = option.inlineValue();
         if (inlineValue != null) {
             if (inlineValue.isEmpty()) {
-                throw new IllegalArgumentException(optionName + " requires " + valueDescription);
+                throw new IllegalArgumentException(option.name() + " requires " + valueDescription);
             }
             return inlineValue;
         }
         if (index + 1 >= args.length) {
-            throw new IllegalArgumentException(optionName + " requires " + valueDescription);
+            throw new IllegalArgumentException(option.name() + " requires " + valueDescription);
         }
         return args[index + 1];
     }
