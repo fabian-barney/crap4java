@@ -11,10 +11,12 @@ import java.util.List;
 final class ProcessCommandExecutor implements CommandExecutor {
 
     private static final int CAPTURE_LIMIT_BYTES = 64 * 1024;
+    private static final Duration DEFAULT_OUTPUT_PIPE_JOIN_GRACE = Duration.ofSeconds(5);
 
     private final Duration timeout;
     private final PrintStream processOutput;
     private final Charset outputCharset;
+    private final Duration outputPipeJoinGrace;
 
     ProcessCommandExecutor() {
         this(Duration.ofMinutes(10), System.err);
@@ -29,9 +31,19 @@ final class ProcessCommandExecutor implements CommandExecutor {
     }
 
     ProcessCommandExecutor(Duration timeout, PrintStream processOutput, Charset outputCharset) {
+        this(timeout, processOutput, outputCharset, DEFAULT_OUTPUT_PIPE_JOIN_GRACE);
+    }
+
+    ProcessCommandExecutor(
+            Duration timeout,
+            PrintStream processOutput,
+            Charset outputCharset,
+            Duration outputPipeJoinGrace
+    ) {
         this.timeout = timeout;
         this.processOutput = processOutput;
         this.outputCharset = outputCharset;
+        this.outputPipeJoinGrace = outputPipeJoinGrace;
     }
 
     @Override
@@ -42,6 +54,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
     @Override
     public CommandResult runWithResult(List<String> command, Path directory) throws Exception {
         ProcessTimeout.validate(timeout);
+        validateOutputPipeJoinGrace();
         Process process = new ProcessBuilder(command)
                 .directory(directory.toFile())
                 .start();
@@ -49,8 +62,8 @@ final class ProcessCommandExecutor implements CommandExecutor {
         OutputPipe stdout = pipe(process.getInputStream(), "stdout");
         OutputPipe stderr = pipe(process.getErrorStream(), "stderr");
         int exit = ProcessTimeout.waitForOrTerminate(process, command, timeout, "Command");
-        stdout.join();
-        stderr.join();
+        stdout.join(outputPipeJoinGrace);
+        stderr.join(outputPipeJoinGrace);
         return new CommandResult(exit, stdout.output(), stderr.output());
     }
 
@@ -78,9 +91,23 @@ final class ProcessCommandExecutor implements CommandExecutor {
         }
     }
 
+    private void validateOutputPipeJoinGrace() {
+        if (outputPipeJoinGrace.isZero() || outputPipeJoinGrace.isNegative()) {
+            throw new IllegalArgumentException("Process output pipe join grace must be positive");
+        }
+    }
+
     private record OutputPipe(Thread thread, BoundedOutputCapture capture, Charset outputCharset) {
-        private void join() throws InterruptedException {
-            thread.join();
+        private void join(Duration grace) throws InterruptedException {
+            thread.join(joinMillis(grace));
+            if (thread.isAlive()) {
+                thread.interrupt();
+            }
+        }
+
+        private static long joinMillis(Duration grace) {
+            long millis = grace.toMillis();
+            return millis > 0 ? millis : 1L;
         }
 
         private String output() {

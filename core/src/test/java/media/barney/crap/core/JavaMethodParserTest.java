@@ -1,11 +1,24 @@
 package media.barney.crap.core;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.JavacTask;
+import com.sun.source.util.SourcePositions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import javax.tools.Diagnostic;
+import javax.tools.JavaCompiler;
+import javax.tools.SimpleJavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class JavaMethodParserTest {
 
@@ -101,6 +114,40 @@ class JavaMethodParserTest {
         List<MethodDescriptor> methods = JavaMethodParser.parse("demo.Sample", source);
 
         assertEquals(List.of(new MethodDescriptor("demo.Sample", "helper", 4, 6, 1)), methods);
+    }
+
+    @Test
+    void rejectsUnknownSourcePositionRanges() {
+        assertFalse(JavaMethodParser.hasKnownSourceRange(Diagnostic.NOPOS, 10));
+        assertFalse(JavaMethodParser.hasKnownSourceRange(10, Diagnostic.NOPOS));
+        assertFalse(JavaMethodParser.hasKnownSourceRange(10, 10));
+        assertTrue(JavaMethodParser.hasKnownSourceRange(10, 11));
+    }
+
+    @Test
+    void skipsParsedMethodsWithUnknownSourcePositions() throws IOException {
+        CompilationUnitTree unit = parseUnit("""
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+        SourcePositions unknownPositions = new SourcePositions() {
+            @Override
+            public long getStartPosition(CompilationUnitTree file, Tree tree) {
+                return Diagnostic.NOPOS;
+            }
+
+            @Override
+            public long getEndPosition(CompilationUnitTree file, Tree tree) {
+                return Diagnostic.NOPOS;
+            }
+        };
+
+        List<MethodDescriptor> methods = JavaMethodParser.collectMethods(unit, unknownPositions);
+
+        assertTrue(methods.isEmpty(), "methods with unknown source positions should be skipped");
     }
 
     @Test
@@ -208,6 +255,25 @@ class JavaMethodParserTest {
     }
 
     @Test
+    void countsOneDecisionPerSwitchCaseClauseIncludingDefault() {
+        String source = """
+                class Sample {
+                    int classify(int value) {
+                        return switch (value) {
+                            case 1, 2, 3 -> 1;
+                            case 4 -> 2;
+                            default -> 0;
+                        };
+                    }
+                }
+                """;
+
+        List<MethodDescriptor> methods = JavaMethodParser.parse("Sample", source);
+
+        assertEquals(List.of(new MethodDescriptor("Sample", "classify", 2, 8, 4)), methods);
+    }
+
+    @Test
     void includesOwningClassNameForNestedAndSecondaryTypes() {
         String source = """
                 package demo;
@@ -261,6 +327,28 @@ class JavaMethodParserTest {
         assertEquals("demo/Sample.java", JavaMethodParser.sourcePath("demo.Sample.java"));
         assertEquals(URI.create("string:///demo/Sample.java"), JavaMethodParser.sourceUri("demo.Sample"));
         assertEquals(URI.create("string:///demo/Sample.java"), JavaMethodParser.sourceUri("demo.Sample.java"));
+    }
+
+    private static CompilationUnitTree parseUnit(String source) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assumeTrue(compiler != null, "system Java compiler is required");
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null)) {
+            JavacTask task = (JavacTask) compiler.getTask(
+                    null,
+                    fileManager,
+                    null,
+                    List.of("-proc:none"),
+                    null,
+                    List.of(new SimpleJavaFileObject(URI.create("string:///Sample.java"),
+                            SimpleJavaFileObject.Kind.SOURCE) {
+                        @Override
+                        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                            return source;
+                        }
+                    })
+            );
+            return task.parse().iterator().next();
+        }
     }
 }
 
