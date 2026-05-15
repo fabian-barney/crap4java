@@ -178,9 +178,9 @@ record ReportOptions(
         return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
     }
 
-    private static boolean isLikelyCaseInsensitiveOs() {
+    static boolean isLikelyCaseInsensitiveOs() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        return os.contains("win") || os.contains("mac");
+        return os.startsWith("windows");
     }
 
     private static boolean sameCaseInsensitivePath(Path first, Path second) {

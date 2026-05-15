@@ -468,9 +468,9 @@ public abstract class CrapJavaCheckTask extends DefaultTask {
         return !probe.getFileName().toString().equals(variant.getFileName().toString()) && Files.exists(variant);
     }
 
-    private boolean isLikelyCaseInsensitiveOs() {
+    static boolean isLikelyCaseInsensitiveOs() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        return os.contains("win") || os.contains("mac");
+        return os.startsWith("windows");
     }
 
     private void cleanupStaleReports(Path currentOutputPath, Path currentJunitReportPath) throws Exception {
