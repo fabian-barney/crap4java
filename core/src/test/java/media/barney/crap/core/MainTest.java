@@ -256,9 +256,9 @@ class MainTest {
         assertEquals(2, exit);
         assertEquals("", utf8(out));
         assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
-        assertTrue(junit.contains("FAILED danger"));
-        assertTrue(junit.contains("PASSED safe"));
-        assertTrue(junit.contains("SKIPPED unknown"));
+        assertTrue(junit.contains("name=\"danger:4\""));
+        assertTrue(junit.contains("name=\"safe:14\""));
+        assertTrue(junit.contains("name=\"unknown:18\""));
     }
 
     @Test
@@ -321,9 +321,9 @@ class MainTest {
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
         assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
-        assertTrue(junit.contains("FAILED danger"));
-        assertTrue(junit.contains("PASSED safe"));
-        assertTrue(junit.contains("SKIPPED unknown"));
+        assertTrue(junit.contains("name=\"danger:4\""));
+        assertTrue(junit.contains("name=\"safe:14\""));
+        assertTrue(junit.contains("name=\"unknown:18\""));
     }
 
     @Test
@@ -390,9 +390,9 @@ class MainTest {
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
         assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
-        assertTrue(junit.contains("FAILED danger"));
-        assertTrue(junit.contains("PASSED safe"));
-        assertTrue(junit.contains("SKIPPED unknown"));
+        assertTrue(junit.contains("name=\"danger:4\""));
+        assertTrue(junit.contains("name=\"safe:14\""));
+        assertTrue(junit.contains("name=\"unknown:18\""));
     }
 
     @Test
@@ -463,9 +463,9 @@ class MainTest {
         assertTrue(primary.contains("\"method\": \"danger\""));
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
-        assertTrue(junit.contains("FAILED danger"));
-        assertTrue(junit.contains("PASSED safe"));
-        assertTrue(junit.contains("SKIPPED unknown"));
+        assertTrue(junit.contains("name=\"danger:4\""));
+        assertTrue(junit.contains("name=\"safe:14\""));
+        assertTrue(junit.contains("name=\"unknown:18\""));
     }
 
     @Test

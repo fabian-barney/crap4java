@@ -209,15 +209,19 @@ class ReportFormatterTest {
                 metric("unknown", "demo.Sample", 20, 2, null, null)
         ), ReportFormat.JUNIT, true, false);
 
-        Element root = parseXml(report).getDocumentElement();
+        Document document = parseXml(report);
+        Element root = document.getDocumentElement();
+        Element danger = testcaseByName(document, "danger:4");
 
         assertEquals("1", root.getAttribute("tests"));
         assertEquals("1", root.getAttribute("failures"));
         assertEquals("0", root.getAttribute("skipped"));
-        assertTrue(report.contains("FAILED danger"));
+        assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("classname"));
+        assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("file"));
+        assertEquals("0", danger.getAttribute("time"));
         assertTrue(report.contains("<property name=\"threshold\" value=\"8.0\"/>"));
-        assertFalse(report.contains("PASSED safe"));
-        assertFalse(report.contains("SKIPPED unknown"));
+        assertFalse(hasTestcase(document, "safe:9"));
+        assertFalse(hasTestcase(document, "unknown:20"));
     }
 
     @Test
@@ -365,6 +369,8 @@ class ReportFormatterTest {
         Element root = document.getDocumentElement();
         Element failure = (Element) document.getElementsByTagName("failure").item(0);
         Element skipped = (Element) document.getElementsByTagName("skipped").item(0);
+        Element danger = testcaseByName(document, "danger:4");
+        Element unknown = testcaseByName(document, "unknown:20");
 
         assertEquals("testsuites", root.getNodeName());
         assertEquals("2", root.getAttribute("tests"));
@@ -375,13 +381,23 @@ class ReportFormatterTest {
         assertTrue(report.contains("    <property name=\"threshold\" value=\"8.0\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"instruction\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"N/A\"/>"));
-        assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"FAILED danger:4 CRAP 9.6\""));
-        assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"SKIPPED unknown:20 CRAP N/A\""));
+        assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("classname"));
+        assertEquals("src/main/java/demo/Sample.java", danger.getAttribute("file"));
+        assertEquals("0", danger.getAttribute("time"));
+        assertEquals("src/main/java/demo/Sample.java", unknown.getAttribute("classname"));
+        assertEquals("src/main/java/demo/Sample.java", unknown.getAttribute("file"));
+        assertEquals("0", unknown.getAttribute("time"));
         assertEquals("CRAP threshold exceeded: 9.6 > 8.0", failure.getAttribute("message"));
         assertEquals("crap-java.threshold", failure.getAttribute("type"));
-        assertEquals("CRAP threshold exceeded: 9.6 > 8.0", failure.getTextContent());
+        assertTrue(failure.getTextContent().contains("CRAP score: 9.6"));
+        assertTrue(failure.getTextContent().contains("Threshold: 8.0"));
+        assertTrue(failure.getTextContent().contains("Coverage: 10.0% (instruction)"));
+        assertTrue(failure.getTextContent().contains("Source: src/main/java/demo/Sample.java:4-6"));
         assertEquals("CRAP score unavailable", skipped.getAttribute("message"));
-        assertEquals("Coverage data unavailable for demo.Sample#unknown", skipped.getTextContent());
+        assertTrue(skipped.getTextContent().contains("CRAP score: N/A"));
+        assertTrue(skipped.getTextContent().contains("Threshold: 8.0"));
+        assertTrue(skipped.getTextContent().contains("Coverage: N/A (N/A)"));
+        assertTrue(skipped.getTextContent().contains("Source: src/main/java/demo/Sample.java:20-22"));
     }
 
     @Test
@@ -452,6 +468,28 @@ class ReportFormatterTest {
             }
         }
         throw new AssertionError("Missing XML property: " + name);
+    }
+
+    private static boolean hasTestcase(Document document, String name) {
+        NodeList testcases = document.getElementsByTagName("testcase");
+        for (int index = 0; index < testcases.getLength(); index++) {
+            Element testcase = (Element) testcases.item(index);
+            if (name.equals(testcase.getAttribute("name"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Element testcaseByName(Document document, String name) {
+        NodeList testcases = document.getElementsByTagName("testcase");
+        for (int index = 0; index < testcases.getLength(); index++) {
+            Element testcase = (Element) testcases.item(index);
+            if (name.equals(testcase.getAttribute("name"))) {
+                return testcase;
+            }
+        }
+        throw new AssertionError("Missing XML testcase: " + name);
     }
 
     private static MethodMetrics metric(String method,
