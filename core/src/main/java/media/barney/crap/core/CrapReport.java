@@ -7,8 +7,13 @@ record CrapReport(
         String status,
         double threshold,
         List<MethodReport> methods,
-        SourceExclusionAudit exclusions
+        SourceExclusionAudit exclusions,
+        double elapsedSeconds
 ) {
+    CrapReport(String status, double threshold, List<MethodReport> methods, SourceExclusionAudit exclusions) {
+        this(status, threshold, methods, exclusions, 0.0);
+    }
+
     CrapReport(String status, double threshold, List<MethodReport> methods) {
         this(status, threshold, methods, SourceExclusionAudit.empty());
     }
@@ -23,6 +28,11 @@ record CrapReport(
                 .map(metric -> MethodReport.from(metric, validatedThreshold))
                 .toList();
         return new CrapReport(status(methods), validatedThreshold, methods, exclusions);
+    }
+
+    CrapReport withElapsedNanos(long elapsedNanos) {
+        double seconds = Math.max(0.0, elapsedNanos / 1_000_000_000.0);
+        return new CrapReport(status, threshold, methods, exclusions, seconds);
     }
 
     private static String status(List<MethodReport> methods) {
