@@ -35,6 +35,10 @@ For each resolved module today:
    - Gradle: `build/reports/jacoco/test/jacocoTestReport.xml`
 5. Analyze the selected Java files for that module
 
+Source discovery walks `src/main/java` roots without following directory
+symlinks. Symlinked Java files inside a source root can still be selected and
+are reported using the symlink path rather than a canonicalized target path.
+
 ## Build and Test
 
 ```bash
