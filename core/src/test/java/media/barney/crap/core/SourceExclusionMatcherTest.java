@@ -72,6 +72,29 @@ class SourceExclusionMatcherTest {
     }
 
     @Test
+    void userGlobExclusionsSupportDoubleStarSingleStarAndQuestionMark() {
+        Path numbered = tempDir.resolve("module/src/main/java/demo/Sample1.java");
+        Path named = tempDir.resolve("module/src/main/java/demo/SampleName.java");
+        Path nested = tempDir.resolve("module/src/main/java/demo/nested/Sample2.java");
+        SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+
+        List<Path> included = SourceExclusionMatcher.filterFiles(
+                tempDir,
+                List.of(numbered, named, nested),
+                new SourceExclusionOptions(
+                        List.of("**/demo/Sample?.java", "**/demo/*.java"),
+                        List.of(),
+                        List.of(),
+                        false
+                ),
+                audit
+        );
+
+        assertEquals(List.of(nested), included);
+        assertEquals(2, audit.build().excludedFileCount());
+    }
+
+    @Test
     void defaultClassRegexesAreGeneratedFocused() {
         SourceExclusionMatcher matcher = SourceExclusionMatcher.create(tempDir, SourceExclusionOptions.defaults());
 

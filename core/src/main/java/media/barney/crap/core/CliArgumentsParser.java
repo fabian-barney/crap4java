@@ -143,44 +143,76 @@ final class CliArgumentsParser {
     }
 
     private static int parseValuedOption(String[] args, int index, ParseStateBuilder state, String arg) {
-        if ("--build-tool".equals(arg)) {
-            state.buildToolSelection = parseBuildTool(args, index, state.buildToolSeen);
-            state.buildToolSeen = true;
-            return index + 1;
-        }
-        if ("--format".equals(arg)) {
-            state.reportFormat = parseReportFormat(args, index, state.reportFormatSeen);
-            state.reportFormatSeen = true;
-            return index + 1;
-        }
-        if ("--output".equals(arg)) {
-            state.outputPath = parsePathOption(args, index, state.outputPathSeen, "--output");
-            state.outputPathSeen = true;
-            return index + 1;
-        }
-        if ("--junit-report".equals(arg)) {
-            state.junitReportPath = parsePathOption(args, index, state.junitReportPathSeen, "--junit-report");
-            state.junitReportPathSeen = true;
-            return index + 1;
-        }
-        if ("--threshold".equals(arg)) {
-            state.threshold = parseThreshold(args, index, state.thresholdSeen);
-            state.thresholdSeen = true;
-            return index + 1;
-        }
-        if ("--exclude".equals(arg)) {
-            state.excludes.add(parseListOption(args, index, "--exclude", "a glob"));
-            return index + 1;
-        }
-        if ("--exclude-class".equals(arg)) {
-            state.excludeClasses.add(parseListOption(args, index, "--exclude-class", "a regex"));
-            return index + 1;
-        }
-        if ("--exclude-annotation".equals(arg)) {
-            state.excludeAnnotations.add(parseListOption(args, index, "--exclude-annotation", "an annotation name"));
+        if (parseBuildToolOption(args, index, state, arg)
+                || parseReportFormatOption(args, index, state, arg)
+                || parseOutputOption(args, index, state, arg)
+                || parseJunitReportOption(args, index, state, arg)
+                || parseThresholdOption(args, index, state, arg)
+                || parseExclusionOption(args, index, state, arg)) {
             return index + 1;
         }
         throw new IllegalArgumentException("Unknown option: " + arg);
+    }
+
+    private static boolean parseBuildToolOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--build-tool".equals(arg)) {
+            state.buildToolSelection = parseBuildTool(args, index, state.buildToolSeen);
+            state.buildToolSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseReportFormatOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--format".equals(arg)) {
+            state.reportFormat = parseReportFormat(args, index, state.reportFormatSeen);
+            state.reportFormatSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseOutputOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--output".equals(arg)) {
+            state.outputPath = parsePathOption(args, index, state.outputPathSeen, "--output");
+            state.outputPathSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseJunitReportOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--junit-report".equals(arg)) {
+            state.junitReportPath = parsePathOption(args, index, state.junitReportPathSeen, "--junit-report");
+            state.junitReportPathSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseThresholdOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--threshold".equals(arg)) {
+            state.threshold = parseThreshold(args, index, state.thresholdSeen);
+            state.thresholdSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseExclusionOption(String[] args, int index, ParseStateBuilder state, String arg) {
+        if ("--exclude".equals(arg)) {
+            state.excludes.add(parseListOption(args, index, "--exclude", "a glob"));
+            return true;
+        }
+        if ("--exclude-class".equals(arg)) {
+            state.excludeClasses.add(parseListOption(args, index, "--exclude-class", "a regex"));
+            return true;
+        }
+        if ("--exclude-annotation".equals(arg)) {
+            state.excludeAnnotations.add(parseListOption(args, index, "--exclude-annotation", "an annotation name"));
+            return true;
+        }
+        return false;
     }
 
     private static boolean parseAgent(boolean agentSeen) {
