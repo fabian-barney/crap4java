@@ -21,6 +21,15 @@ The toolkit resolves Maven and Gradle modules natively, including standard multi
   `INSTRUCTION` and `BRANCH` counters. JaCoCo omits `BRANCH` counters for
   branchless methods, so those methods use instruction coverage.
 
+## Cyclomatic Complexity Model
+
+Java method complexity starts at `1` and increments for each AST decision node:
+loops, `if`, conditional expressions, `catch`, short-circuit boolean operators,
+and switch case clauses. Switch handling follows the javac AST: each
+`case`/`default` clause contributes `1`, regardless of how many constants appear
+in that clause. For example, `case A, B, C ->` contributes `1`, not `3`, and
+`default` also contributes `1`.
+
 ## Coverage Pipeline
 
 For each resolved module today:

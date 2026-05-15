@@ -203,6 +203,25 @@ class JavaMethodParserTest {
     }
 
     @Test
+    void countsOneDecisionPerSwitchCaseClauseIncludingDefault() {
+        String source = """
+                class Sample {
+                    int classify(int value) {
+                        return switch (value) {
+                            case 1, 2, 3 -> 1;
+                            case 4 -> 2;
+                            default -> 0;
+                        };
+                    }
+                }
+                """;
+
+        List<MethodDescriptor> methods = JavaMethodParser.parse("Sample", source);
+
+        assertEquals(List.of(new MethodDescriptor("Sample", "classify", 2, 8, 4)), methods);
+    }
+
+    @Test
     void includesOwningClassNameForNestedAndSecondaryTypes() {
         String source = """
                 package demo;
