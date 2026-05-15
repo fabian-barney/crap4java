@@ -270,6 +270,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
 
         @Override
         public void write(byte[] buffer, int offset, int length) {
+            Objects.checkFromIndexSize(offset, length, buffer.length);
             for (int index = offset; index < offset + length; index++) {
                 write(buffer[index]);
             }
