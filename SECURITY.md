@@ -12,4 +12,4 @@ https://github.com/fabian-barney/crap-java/security/advisories/new
 
 Do not open a public issue for suspected vulnerabilities.
 
-Reports are handled on a best-effort basis. You can generally expect an initial triage response within 14 days. This project does not currently run a paid bug bounty program.
+Reports are handled on a best-effort basis. You can generally expect an acknowledgement and preliminary severity assessment within 14 days when the report includes enough information to reproduce or reason about the issue. This project does not currently run a paid bug bounty program.
