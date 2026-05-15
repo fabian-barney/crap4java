@@ -847,10 +847,12 @@ class MainTest {
         if (!Files.exists(path)) {
             return;
         }
+        List<Path> entries;
         try (var paths = Files.walk(path)) {
-            for (Path entry : paths.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(entry);
-            }
+            entries = paths.sorted(Comparator.reverseOrder()).toList();
+        }
+        for (Path entry : entries) {
+            Files.deleteIfExists(entry);
         }
     }
 

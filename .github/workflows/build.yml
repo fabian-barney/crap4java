@@ -57,12 +57,12 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x gradle-plugin/gradlew
 
-      - name: Run Gradle plugin functional tests
+      - name: Run Gradle plugin functional tests on Unix
         if: runner.os != 'Windows'
         working-directory: gradle-plugin
         run: ./gradlew test
 
-      - name: Run Gradle plugin functional tests
+      - name: Run Gradle plugin functional tests on Windows
         if: runner.os == 'Windows'
         working-directory: gradle-plugin
         shell: pwsh
