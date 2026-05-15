@@ -74,6 +74,16 @@ class ProcessCommandExecutorTest {
         assertTrue(message.contains(String.join(" ", sleepCommand())));
     }
 
+    @Test
+    void rejectsNonPositiveTimeouts() {
+        ProcessCommandExecutor executor = new ProcessCommandExecutor(Duration.ZERO);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> executor.run(sleepCommand(), tempDir));
+
+        assertTrue(Objects.requireNonNull(error.getMessage()).contains("Command timeout must be positive"));
+    }
+
     private static List<String> exitCommand(int exitCode) {
         if (System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
             return List.of("cmd", "/c", "exit " + exitCode);
@@ -96,19 +106,7 @@ class ProcessCommandExecutorTest {
     }
 
     private static List<String> largeOutputCommand() {
-        return List.of(
-                javaExecutable(),
-                "-cp",
-                System.getProperty("java.class.path"),
-                LargeOutput.class.getName()
-        );
-    }
-
-    private static String javaExecutable() {
-        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
-                ? "java.exe"
-                : "java";
-        return Path.of(System.getProperty("java.home"), "bin", executable).toString();
+        return TestJavaCommand.command(LargeOutput.class);
     }
 
     public static final class LargeOutput {
