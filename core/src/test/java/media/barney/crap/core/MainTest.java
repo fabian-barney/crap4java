@@ -10,7 +10,6 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -529,7 +528,7 @@ class MainTest {
             assertTrue(Files.exists(junitReport));
             assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
         } finally {
-            deleteTree(reportRoot);
+            TestFiles.bestEffortDeleteTree(reportRoot);
         }
     }
 
@@ -841,23 +840,6 @@ class MainTest {
 
     private static String utf8(ByteArrayOutputStream output) {
         return output.toString(StandardCharsets.UTF_8);
-    }
-
-    private static void deleteTree(Path path) {
-        try {
-            if (!Files.exists(path)) {
-                return;
-            }
-            List<Path> entries;
-            try (var paths = Files.walk(path)) {
-                entries = paths.sorted(Comparator.reverseOrder()).toList();
-            }
-            for (Path entry : entries) {
-                Files.deleteIfExists(entry);
-            }
-        } catch (IOException ex) {
-            // Best-effort cleanup must not hide the primary assertion failure.
-        }
     }
 
     private void writeMixedCoverageSample() throws Exception {
