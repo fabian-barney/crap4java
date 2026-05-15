@@ -1,8 +1,7 @@
 package media.barney.crap.core;
 
-import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -13,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 final class ProcessCommandExecutor implements CommandExecutor {
 
     private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
+    private static final int CAPTURE_LIMIT_BYTES = 64 * 1024;
 
     private final Duration timeout;
     private final PrintStream processOutput;
@@ -58,7 +58,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
     }
 
     private OutputPipe pipe(InputStream input) {
-        ByteArrayOutputStream capture = new ByteArrayOutputStream();
+        BoundedOutputCapture capture = new BoundedOutputCapture();
         Thread thread = new Thread(() -> {
             try (input) {
                 copyOutput(input, capture);
@@ -71,7 +71,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
         return new OutputPipe(thread, capture);
     }
 
-    private void copyOutput(InputStream input, ByteArrayOutputStream capture) throws IOException {
+    private void copyOutput(InputStream input, BoundedOutputCapture capture) throws IOException {
         byte[] buffer = new byte[8192];
         int read;
         while ((read = input.read(buffer)) != -1) {
@@ -81,13 +81,51 @@ final class ProcessCommandExecutor implements CommandExecutor {
         processOutput.flush();
     }
 
-    private record OutputPipe(Thread thread, ByteArrayOutputStream capture) {
+    private record OutputPipe(Thread thread, BoundedOutputCapture capture) {
         private void join() throws InterruptedException {
             thread.join();
         }
 
         private String output() {
             return capture.toString(StandardCharsets.UTF_8);
+        }
+    }
+
+    private static final class BoundedOutputCapture {
+        private final byte[] tail = new byte[CAPTURE_LIMIT_BYTES];
+        private int nextIndex;
+        private int length;
+        private long totalBytes;
+
+        private void write(byte[] buffer, int offset, int count) {
+            for (int index = offset; index < offset + count; index++) {
+                writeByte(buffer[index]);
+            }
+        }
+
+        private void writeByte(byte value) {
+            tail[nextIndex] = value;
+            nextIndex = (nextIndex + 1) % tail.length;
+            length = Math.min(length + 1, tail.length);
+            totalBytes++;
+        }
+
+        private String toString(java.nio.charset.Charset charset) {
+            String text = new String(bytes(), charset);
+            if (totalBytes <= CAPTURE_LIMIT_BYTES) {
+                return text;
+            }
+            return "[captured output truncated to last " + CAPTURE_LIMIT_BYTES + " bytes]" + System.lineSeparator()
+                    + text;
+        }
+
+        private byte[] bytes() {
+            byte[] output = new byte[length];
+            int startIndex = length == tail.length ? nextIndex : 0;
+            for (int index = 0; index < length; index++) {
+                output[index] = tail[(startIndex + index) % tail.length];
+            }
+            return output;
         }
     }
 }

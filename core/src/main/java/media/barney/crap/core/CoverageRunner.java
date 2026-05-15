@@ -31,9 +31,9 @@ final class CoverageRunner {
 
     private String failureMessage(ProjectModule module, List<String> command, CommandResult result) {
         StringBuilder message = new StringBuilder()
-                .append("Coverage command '")
-                .append(String.join(" ", command))
-                .append("' failed in ")
+                .append("Coverage command ")
+                .append(command)
+                .append(" failed in ")
                 .append(module.executionRoot().toAbsolutePath().normalize())
                 .append(" with exit ")
                 .append(result.exitCode());

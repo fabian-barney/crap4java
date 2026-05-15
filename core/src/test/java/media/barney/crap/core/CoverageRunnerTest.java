@@ -59,8 +59,8 @@ class CoverageRunnerTest {
                 () -> runner.generateCoverage(new ProjectModule(tempDir, tempDir, BuildTool.GRADLE)));
 
         String message = Objects.requireNonNull(ex.getMessage());
-        assertTrue(message.startsWith("Coverage command '"));
-        assertTrue(message.contains("' failed in " + tempDir.toAbsolutePath().normalize() + " with exit 2"));
+        assertTrue(message.startsWith("Coverage command ["));
+        assertTrue(message.contains("] failed in " + tempDir.toAbsolutePath().normalize() + " with exit 2"));
         assertTrue(message.contains("stderr:" + System.lineSeparator() + "coverage failed"));
         assertTrue(message.contains("stdout:" + System.lineSeparator() + "coverage progress"));
     }
