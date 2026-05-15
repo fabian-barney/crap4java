@@ -53,10 +53,12 @@ class JavaMethodParserTest {
     }
 
     @Test
-    void ignoresConstructorsAndAbstractMethods() {
+    void extractsConstructorsAndIgnoresAbstractMethods() {
         String source = """
                 abstract class Sample {
-                    Sample() {
+                    Sample(boolean flag) {
+                        if (flag) {
+                        }
                     }
 
                     abstract int missing();
@@ -69,7 +71,10 @@ class JavaMethodParserTest {
 
         List<MethodDescriptor> methods = JavaMethodParser.parse("Sample", source);
 
-        assertEquals(List.of(new MethodDescriptor("Sample", "present", 7, 9, 1)), methods);
+        assertEquals(List.of(
+                new MethodDescriptor("Sample", "<init>", 2, 5, 2),
+                new MethodDescriptor("Sample", "present", 9, 11, 1)
+        ), methods);
     }
 
     @Test
