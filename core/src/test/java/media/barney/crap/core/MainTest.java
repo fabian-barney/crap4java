@@ -501,8 +501,12 @@ class MainTest {
         writeMixedCoverageSample();
         Path source = tempDir.resolve("src/main/java/demo/Sample.java");
         Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
-        Path junitReport = tempDir.resolve("legacy-relative-junit.xml").toAbsolutePath().normalize();
-        Path relativeJunitReport = Path.of("").toAbsolutePath().normalize().relativize(junitReport);
+        Path currentDirectory = Path.of("").toAbsolutePath().normalize();
+        Path targetDirectory = currentDirectory.resolve("target");
+        Files.createDirectories(targetDirectory);
+        Path reportRoot = Files.createTempDirectory(targetDirectory, "legacy-junit-");
+        Path junitReport = reportRoot.resolve("legacy-relative-junit.xml");
+        Path relativeJunitReport = currentDirectory.relativize(junitReport);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 

@@ -28,9 +28,10 @@ class ProcessCommandExecutorTest {
     @Test
     void timesOutLongRunningProcesses() {
         ProcessCommandExecutor executor = new ProcessCommandExecutor(Duration.ofMillis(100));
+        Path workingDirectory = Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> executor.run(sleepCommand(), tempDir));
+                () -> executor.run(sleepCommand(), workingDirectory));
 
         String message = Objects.requireNonNull(error.getMessage());
         assertTrue(message.contains("Command timed out"));
