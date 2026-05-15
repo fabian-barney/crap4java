@@ -190,12 +190,13 @@ doubt.
 
 The JUnit XML format exposes each analyzed method as a testcase and is shaped
 for GitLab's Tests tab. Testcases use the project-relative source path for
-`classname` and `file`, use `method:lineStart` as the testcase `name`, and
-write `time="0"`. Methods with CRAP scores over the configured threshold fail,
-methods with unavailable coverage are skipped, and failure/skipped element text
-includes CRAP score, threshold, coverage kind, source path, and line range.
-Custom properties remain for tools that read them, but GitLab-visible details do
-not rely on properties.
+`classname` and `file`, use `method:lineStart` as the testcase `name`, write the
+measured analysis duration on the testsuite, and divide that duration across
+testcases. Methods with CRAP scores over the configured threshold fail, methods
+with unavailable coverage are skipped, and failure/skipped element text includes
+CRAP score, threshold, coverage kind, source path, and line range. Custom
+properties remain for tools that read them, but GitLab-visible details do not
+rely on properties.
 
 ## Distribution
 

@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.LongSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -221,23 +222,52 @@ class MainTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
 
-        int exit = Main.runWithExistingCoverage(
+        int exit = new CliApplication(
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                NOOP_COVERAGE,
+                CoverageMode.USE_EXISTING,
+                elapsedNanos(1_200_000_000L)
+        ).execute(
                 new String[]{
                         "--format", "json",
                         "--output", "target/crap-java/report.json",
                         "--junit-report", "target/crap-java/TEST-crap-java.xml",
                         "src/main/java/demo/Sample.java"
-                },
-                tempDir,
-                new PrintStream(out),
-                new PrintStream(err)
+                }
         );
 
         assertEquals(0, exit);
         assertEquals("", utf8(out));
         assertEquals("", utf8(err));
         assertTrue(Files.readString(jsonReport).contains("\"covKind\": \"instruction\""));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"1.2\">"));
+    }
+
+    @Test
+    void cliJunitReportUsesElapsedTimeWhenNoFilesAreAnalyzed() throws Exception {
+        Path junitReport = tempDir.resolve("target/crap-java/TEST-empty.xml");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = new CliApplication(
+                tempDir,
+                new PrintStream(out),
+                new PrintStream(err),
+                NOOP_COVERAGE,
+                CoverageMode.USE_EXISTING,
+                elapsedNanos(1_200_000_000L)
+        ).execute(
+                new String[]{
+                        "--format", "none",
+                        "--junit-report", "target/crap-java/TEST-empty.xml"
+                }
+        );
+
+        assertEquals(0, exit);
+        assertEquals("", utf8(out));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"0\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"1.2\">"));
     }
 
     @Test
@@ -261,7 +291,7 @@ class MainTest {
         String junit = Files.readString(junitReport);
         assertEquals(2, exit);
         assertEquals("", utf8(out));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -292,7 +322,7 @@ class MainTest {
         assertEquals("", utf8(out));
         assertTrue(Files.exists(primaryReport));
         assertEquals("", Files.readString(primaryReport));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
     }
 
     @Test
@@ -326,7 +356,7 @@ class MainTest {
         assertTrue(primary.contains("\"method\": \"danger\""));
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -395,7 +425,7 @@ class MainTest {
         assertTrue(primary.contains("\"method\": \"danger\""));
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -528,7 +558,8 @@ class MainTest {
 
             assertEquals(2, exit);
             assertTrue(Files.exists(junitReport));
-            assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+            assertTrue(Files.readString(junitReport)
+                    .contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         } finally {
             TestFiles.bestEffortDeleteTree(reportRoot);
         }
@@ -842,6 +873,19 @@ class MainTest {
 
     private static String utf8(ByteArrayOutputStream output) {
         return output.toString(StandardCharsets.UTF_8);
+    }
+
+    private static LongSupplier elapsedNanos(long elapsedNanos) {
+        return new LongSupplier() {
+            private long next;
+
+            @Override
+            public long getAsLong() {
+                long current = next;
+                next += elapsedNanos;
+                return current;
+            }
+        };
     }
 
     private void writeMixedCoverageSample() throws Exception {
