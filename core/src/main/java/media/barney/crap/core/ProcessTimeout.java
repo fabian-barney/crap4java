@@ -20,16 +20,27 @@ final class ProcessTimeout {
                                   Duration timeout,
                                   String commandDescription) throws InterruptedException {
         long timeoutNanos = timeoutNanos(timeout);
-        if (process.waitFor(timeoutNanos, TimeUnit.NANOSECONDS)) {
-            return process.exitValue();
+        try {
+            if (process.waitFor(timeoutNanos, TimeUnit.NANOSECONDS)) {
+                return process.exitValue();
+            }
+            String commandText = String.join(" ", command);
+            process.destroyForcibly();
+            if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new IllegalStateException(commandDescription + " timed out after " + timeout
+                        + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
+            }
+            throw new IllegalStateException(commandDescription + " timed out after " + timeout + ": " + commandText);
+        } catch (InterruptedException ex) {
+            process.destroyForcibly();
+            try {
+                process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException cleanupFailure) {
+                ex.addSuppressed(cleanupFailure);
+            }
+            Thread.currentThread().interrupt();
+            throw ex;
         }
-        String commandText = String.join(" ", command);
-        process.destroyForcibly();
-        if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-            throw new IllegalStateException(commandDescription + " timed out after " + timeout
-                    + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
-        }
-        throw new IllegalStateException(commandDescription + " timed out after " + timeout + ": " + commandText);
     }
 
     private static long timeoutNanos(Duration timeout) {
