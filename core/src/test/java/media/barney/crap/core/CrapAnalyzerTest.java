@@ -234,19 +234,6 @@ class CrapAnalyzerTest {
     }
 
     @Test
-    void usesSimpleClassNameWhenSourceHasNoPackage() {
-        String className = CrapAnalyzer.classNameFromSource(
-                Path.of("src/main/java/Sample.java"),
-                """
-                class Sample {
-                }
-                """
-        );
-
-        assertEquals("Sample", className);
-    }
-
-    @Test
     void attributesCoverageToNestedAndSecondaryTypes() throws IOException {
         Path sourceRoot = tempDir.resolve("src/main/java/demo");
         Files.createDirectories(sourceRoot);
@@ -308,6 +295,44 @@ class CrapAnalyzerTest {
         assertEquals("demo.Secondary", Objects.requireNonNull(metricsByMethod.get("beta")).className());
         assertEquals(100.0, Objects.requireNonNull(Objects.requireNonNull(metricsByMethod.get("beta")).coveragePercent()), 0.001);
         assertEquals("instruction", Objects.requireNonNull(metricsByMethod.get("beta")).coverageKind());
+    }
+
+    @Test
+    void ignoresPackageDeclarationsInsideBlockCommentsWhenAttributingCoverage() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java/real/example");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                /*
+                 * Example package declaration:
+                package fake.example;
+                 */
+                package real.example;
+
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, """
+                <report>
+                  <package name="real/example">
+                    <class name="real/example/Sample" sourcefilename="Sample.java">
+                      <method name="alpha" desc="()I" line="8">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        MethodMetrics metric = CrapAnalyzer.analyze(tempDir, List.of(source), jacoco).get(0);
+
+        assertEquals("real.example.Sample", metric.className());
+        assertEquals(100.0, Objects.requireNonNull(metric.coveragePercent()), 0.001);
     }
 
     @Test
