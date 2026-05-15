@@ -264,6 +264,8 @@ class CliArgumentsParserTest {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--format"}));
         assertEquals("--format requires one of: toon, json, text, junit, none", error.getMessage());
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--format="}));
     }
 
     @Test
@@ -284,6 +286,8 @@ class CliArgumentsParserTest {
     void thresholdRequiresValue() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--threshold"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--threshold="}));
     }
 
     @Test
@@ -310,6 +314,8 @@ class CliArgumentsParserTest {
     void outputRequiresValue() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--output"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--output="}));
     }
 
     @Test
@@ -322,6 +328,8 @@ class CliArgumentsParserTest {
     void junitReportRequiresValue() {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--junit-report"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--junit-report="}));
     }
 
     @Test
