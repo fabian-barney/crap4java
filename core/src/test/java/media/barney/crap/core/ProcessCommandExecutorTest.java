@@ -38,6 +38,16 @@ class ProcessCommandExecutorTest {
         assertTrue(message.contains(String.join(" ", sleepCommand())));
     }
 
+    @Test
+    void rejectsNonPositiveTimeouts() {
+        ProcessCommandExecutor executor = new ProcessCommandExecutor(Duration.ZERO);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> executor.run(sleepCommand(), tempDir));
+
+        assertTrue(Objects.requireNonNull(error.getMessage()).contains("Command timeout must be positive"));
+    }
+
     private static List<String> exitCommand(int exitCode) {
         if (System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
             return List.of("cmd", "/c", "exit " + exitCode);

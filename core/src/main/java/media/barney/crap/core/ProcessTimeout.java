@@ -1,0 +1,45 @@
+package media.barney.crap.core;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+final class ProcessTimeout {
+
+    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
+
+    private ProcessTimeout() {
+    }
+
+    static void validate(Duration timeout) {
+        timeoutNanos(timeout);
+    }
+
+    static int waitForOrTerminate(Process process,
+                                  List<String> command,
+                                  Duration timeout,
+                                  String commandDescription) throws InterruptedException {
+        long timeoutNanos = timeoutNanos(timeout);
+        if (process.waitFor(timeoutNanos, TimeUnit.NANOSECONDS)) {
+            return process.exitValue();
+        }
+        String commandText = String.join(" ", command);
+        process.destroyForcibly();
+        if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            throw new IllegalStateException(commandDescription + " timed out after " + timeout
+                    + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
+        }
+        throw new IllegalStateException(commandDescription + " timed out after " + timeout + ": " + commandText);
+    }
+
+    private static long timeoutNanos(Duration timeout) {
+        if (timeout.isZero() || timeout.isNegative()) {
+            throw new IllegalArgumentException("Command timeout must be positive: " + timeout);
+        }
+        try {
+            return timeout.toNanos();
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("Command timeout is too large: " + timeout, ex);
+        }
+    }
+}

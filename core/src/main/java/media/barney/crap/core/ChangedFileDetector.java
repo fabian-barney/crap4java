@@ -7,13 +7,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 
 final class ChangedFileDetector {
 
     private static final Duration GIT_STATUS_TIMEOUT = Duration.ofMinutes(10);
-    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
     private static final List<String> GIT_COMMAND = List.of("git");
 
     private ChangedFileDetector() {
@@ -27,6 +25,7 @@ final class ChangedFileDetector {
                                        List<String> gitCommand,
                                        Duration timeout) throws IOException, InterruptedException {
         List<String> command = gitStatusCommand(projectRoot, gitCommand);
+        ProcessTimeout.validate(timeout);
         Process process = new ProcessBuilder(command)
                 .redirectErrorStream(true)
                 .start();
@@ -36,7 +35,7 @@ final class ChangedFileDetector {
         int exit;
         byte[] outputBytes;
         try {
-            exit = waitFor(process, command, timeout);
+            exit = ProcessTimeout.waitForOrTerminate(process, command, timeout, "Changed-file detection command");
             outputBytes = outputReader.bytes();
         } catch (IOException | InterruptedException | RuntimeException ex) {
             outputReader.close();
@@ -75,22 +74,6 @@ final class ChangedFileDetector {
         command.add("-z");
         command.add("--untracked-files=all");
         return command;
-    }
-
-    private static int waitFor(Process process,
-                               List<String> command,
-                               Duration timeout) throws InterruptedException {
-        if (process.waitFor(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
-            return process.exitValue();
-        }
-        String commandText = String.join(" ", command);
-        process.destroyForcibly();
-        if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-            throw new IllegalStateException(
-                    "Changed-file detection command timed out after " + timeout
-                            + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
-        }
-        throw new IllegalStateException("Changed-file detection command timed out after " + timeout + ": " + commandText);
     }
 
     private static OutputReader readOutput(InputStream input) {
@@ -193,7 +176,7 @@ final class ChangedFileDetector {
             }
             thread.interrupt();
             try {
-                thread.join(TERMINATION_TIMEOUT.toMillis());
+                thread.join(Duration.ofSeconds(5).toMillis());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }

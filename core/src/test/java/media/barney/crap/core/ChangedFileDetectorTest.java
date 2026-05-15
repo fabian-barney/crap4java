@@ -167,6 +167,14 @@ class ChangedFileDetectorTest {
                 .contains("Changed-file detection command timed out after PT0.1S"));
     }
 
+    @Test
+    void rejectsNonPositiveGitStatusTimeout() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> ChangedFileDetector.changedJavaFiles(tempDir, javaSleepingGitCommand(), Duration.ZERO));
+
+        assertTrue(Objects.requireNonNull(error.getMessage()).contains("Command timeout must be positive"));
+    }
+
     private static void run(Path dir, String... command) throws IOException, InterruptedException {
         Process process = new ProcessBuilder(command)
                 .directory(dir.toFile())

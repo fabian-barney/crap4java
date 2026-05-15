@@ -5,11 +5,8 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 final class ProcessCommandExecutor implements CommandExecutor {
-
-    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
 
     private final Duration timeout;
     private final PrintStream processOutput;
@@ -29,24 +26,17 @@ final class ProcessCommandExecutor implements CommandExecutor {
 
     @Override
     public int run(List<String> command, Path directory) throws Exception {
+        ProcessTimeout.validate(timeout);
         Process process = new ProcessBuilder(command)
                 .directory(directory.toFile())
                 .start();
         process.getOutputStream().close();
         Thread stdout = pipe(process.getInputStream());
         Thread stderr = pipe(process.getErrorStream());
-        if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-            process.destroyForcibly();
-            if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-                throw new IllegalStateException(
-                        "Command timed out after " + timeout + " and could not be terminated within "
-                                + TERMINATION_TIMEOUT + ": " + String.join(" ", command));
-            }
-            throw new IllegalStateException("Command timed out after " + timeout + ": " + String.join(" ", command));
-        }
+        int exit = ProcessTimeout.waitForOrTerminate(process, command, timeout, "Command");
         stdout.join();
         stderr.join();
-        return process.exitValue();
+        return exit;
     }
 
     private Thread pipe(InputStream input) {
