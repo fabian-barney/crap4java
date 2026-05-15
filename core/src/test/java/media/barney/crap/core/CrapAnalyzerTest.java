@@ -336,6 +336,38 @@ class CrapAnalyzerTest {
     }
 
     @Test
+    void attributesCoverageToDefaultPackageSources() throws IOException {
+        Path sourceRoot = tempDir.resolve("src/main/java");
+        Files.createDirectories(sourceRoot);
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+
+        Path jacoco = tempDir.resolve("jacoco.xml");
+        Files.writeString(jacoco, """
+                <report>
+                  <package name="">
+                    <class name="Sample" sourcefilename="Sample.java">
+                      <method name="alpha" desc="()I" line="2">
+                        <counter type="INSTRUCTION" missed="0" covered="1"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        MethodMetrics metric = CrapAnalyzer.analyze(tempDir, List.of(source), jacoco).get(0);
+
+        assertEquals("Sample", metric.className());
+        assertEquals(100.0, Objects.requireNonNull(metric.coveragePercent()), 0.001);
+    }
+
+    @Test
     void lookupCoveragePrefersExactLineBeforeNearestMatch() {
         Map<String, CoverageData> coverageMap = Map.of(
                 "demo.Sample#alpha:10", new CoverageData(1, 3),
