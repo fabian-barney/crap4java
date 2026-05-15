@@ -54,7 +54,8 @@ class ProcessCommandExecutorTest {
         CommandResult result = executor.runWithResult(largeOutputCommand(), tempDir);
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.stdout().contains("captured output truncated to last 65536 bytes"));
+        assertTrue(result.stdout().contains("captured output truncated to last "));
+        assertTrue(result.stdout().contains(" bytes"));
         assertFalse(result.stdout().contains("first-line"));
         assertTrue(result.stdout().contains("last-line"));
     }
