@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest released minor version. Please upgrade to the latest release before reporting an issue that may already be fixed.
+Security fixes are provided for the most recent published release only. Please upgrade to the latest release before reporting an issue that may already be fixed.
 
 ## Reporting a Vulnerability
 
