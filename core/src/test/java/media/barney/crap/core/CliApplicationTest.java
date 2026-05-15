@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -218,7 +219,8 @@ class CliApplicationTest {
 
         assertEquals(0, exit);
         assertEquals(List.of(tempDir), directories);
-        assertEquals(List.of(List.of("gradle", "--no-daemon", "-q", ":apps:demo:test", ":apps:demo:jacocoTestReport")), commands);
+        assertEquals(List.of(List.of(gradleFallbackLauncher(), "--no-daemon", "-q",
+                ":apps:demo:test", ":apps:demo:jacocoTestReport")), commands);
         assertTrue(utf8(out).contains("apps/demo/src/main/java/demo/Sample.java"));
         assertFalse(utf8(err).contains("Warning: JaCoCo XML not found"));
     }
@@ -355,6 +357,12 @@ class CliApplicationTest {
 
     private static String utf8(ByteArrayOutputStream output) {
         return output.toString(StandardCharsets.UTF_8);
+    }
+
+    private static String gradleFallbackLauncher() {
+        return System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
+                ? "gradle.bat"
+                : "gradle";
     }
 
     private static void run(Path dir, String... command) throws Exception {
