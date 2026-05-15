@@ -100,6 +100,66 @@ class CrapJavaCheckMojoTest {
     }
 
     @Test
+    void ignoresGeneratedCompileSourceRootsWhenPassingSourceRootsToCli() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path defaultSourceRoot = root.resolve("src/main/java");
+        Path generatedSourceRoot = root.resolve("target/generated-sources/annotations");
+        Files.createDirectories(defaultSourceRoot);
+        Files.createDirectories(generatedSourceRoot);
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject project = project(root, "root");
+        project.addCompileSourceRoot(defaultSourceRoot.toString());
+        project.addCompileSourceRoot(generatedSourceRoot.toString());
+        setField(mojo, "session", session(List.of(project), root));
+        setField(mojo, "project", project);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
+    }
+
+    @Test
+    void passesOnlyAnalyzableConfiguredCompileSourceRootsToCli() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path sourceRoot = root.resolve("src/java");
+        Path generatedSourceRoot = root.resolve("target/generated-sources/annotations");
+        Files.createDirectories(sourceRoot);
+        Files.createDirectories(generatedSourceRoot);
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject project = project(root, "root");
+        project.addCompileSourceRoot(sourceRoot.toString());
+        project.addCompileSourceRoot(generatedSourceRoot.toString());
+        setField(mojo, "session", session(List.of(project), root));
+        setField(mojo, "project", project);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--source-root",
+                sourceRoot.toString(),
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
+    }
+
+    @Test
     void routesRunnerOutputThroughMavenLog() throws Exception {
         Path root = tempDir.resolve("root");
         writeCoverageReport(root);
@@ -363,6 +423,32 @@ class CrapJavaCheckMojoTest {
                 ex.getMessage()
         );
         assertFalse(runner.invoked);
+    }
+
+    @Test
+    void ignoresGeneratedCompileSourceRootsWhenCheckingCoverageReports() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path generatedSourceRoot = root.resolve("target/generated-sources/annotations");
+        Files.createDirectories(generatedSourceRoot);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject project = project(root, "root");
+        project.addCompileSourceRoot(generatedSourceRoot.toString());
+        setField(mojo, "session", session(List.of(project), root));
+        setField(mojo, "project", project);
+
+        mojo.execute();
+
+        assertTrue(runner.invoked);
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
     }
 
     @Test

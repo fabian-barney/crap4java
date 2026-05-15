@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -308,7 +309,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         List<Path> missingReports = new ArrayList<>();
         for (MavenProject reactorProject : reactorProjects()) {
             Path basedir = reactorProject.getBasedir().toPath().normalize();
-            if (compileSourceRoots(reactorProject).stream().anyMatch(Files::exists)
+            if (!analyzableCompileSourceRoots(reactorProject).isEmpty()
                     && !Files.exists(basedir.resolve("target/site/jacoco/jacoco.xml"))) {
                 missingReports.add(basedir.resolve("target/site/jacoco/jacoco.xml"));
             }
@@ -326,7 +327,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
             return List.of();
         }
         return reactorProjects().stream()
-                .flatMap(project -> compileSourceRoots(project).stream())
+                .flatMap(project -> analyzableCompileSourceRoots(project).stream())
                 .map(Path::toString)
                 .distinct()
                 .toList();
@@ -334,8 +335,15 @@ public class CrapJavaCheckMojo extends AbstractMojo {
 
     private boolean hasCustomCompileSourceRoot() {
         return reactorProjects().stream()
-                .anyMatch(project -> compileSourceRoots(project).stream()
+                .anyMatch(project -> analyzableCompileSourceRoots(project).stream()
                         .anyMatch(sourceRoot -> !sourceRoot.equals(defaultSourceRoot(project))));
+    }
+
+    private static List<Path> analyzableCompileSourceRoots(MavenProject project) {
+        return compileSourceRoots(project).stream()
+                .filter(Files::isDirectory)
+                .filter(sourceRoot -> !isGeneratedOrBuildOutputRoot(project, sourceRoot))
+                .toList();
     }
 
     private static List<Path> compileSourceRoots(MavenProject project) {
@@ -352,6 +360,28 @@ public class CrapJavaCheckMojo extends AbstractMojo {
 
     private static Path defaultSourceRoot(MavenProject project) {
         return project.getBasedir().toPath().resolve("src/main/java").normalize();
+    }
+
+    private static boolean isGeneratedOrBuildOutputRoot(MavenProject project, Path sourceRoot) {
+        Path basedir = project.getBasedir().toPath().normalize();
+        return isUnder(sourceRoot, basedir.resolve("target").normalize())
+                || isUnder(sourceRoot, basedir.resolve("build").normalize())
+                || isUnder(sourceRoot, basedir.resolve("out").normalize())
+                || hasGeneratedSegment(basedir, sourceRoot);
+    }
+
+    private static boolean isUnder(Path path, Path parent) {
+        return path.equals(parent) || path.startsWith(parent);
+    }
+
+    private static boolean hasGeneratedSegment(Path basedir, Path sourceRoot) {
+        Path relativeRoot = sourceRoot.startsWith(basedir) ? basedir.relativize(sourceRoot) : sourceRoot;
+        for (Path segment : relativeRoot) {
+            if (segment.toString().toLowerCase(Locale.ROOT).contains("generated")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Path executionRoot() {
