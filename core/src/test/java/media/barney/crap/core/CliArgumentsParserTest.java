@@ -73,16 +73,12 @@ class CliArgumentsParserTest {
     }
 
     @Test
-    void valueOptionsAcceptInlineAssignments() {
+    void buildAndReportOptionsAcceptInlineAssignments() {
         CliArguments args = CliArgumentsParser.parse(new String[]{
                 "--build-tool=maven",
                 "--format=json",
                 "--output=target/crap-java/report.json",
                 "--junit-report=target/crap-java/TEST-crap-java.xml",
-                "--threshold=6.0",
-                "--exclude=module-a/**",
-                "--exclude-class=.*MapperImpl$",
-                "--exclude-annotation=Generated",
                 "--changed"
         });
 
@@ -91,7 +87,25 @@ class CliArgumentsParserTest {
         assertEquals(ReportFormat.JSON, args.reportFormat());
         assertEquals("target/crap-java/report.json", args.outputPath());
         assertEquals("target/crap-java/TEST-crap-java.xml", args.junitReportPath());
+    }
+
+    @Test
+    void thresholdAcceptsInlineAssignment() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{"--threshold=6.0", "--changed"});
+
+        assertEquals(CliMode.CHANGED_SRC, args.mode());
         assertEquals(6.0, args.threshold(), 1.0e-9);
+    }
+
+    @Test
+    void sourceExclusionOptionsAcceptInlineAssignments() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{
+                "--exclude=module-a/**",
+                "--exclude-class=.*MapperImpl$",
+                "--exclude-annotation=Generated",
+                "--changed"
+        });
+
         assertEquals(List.of("module-a/**"), args.exclusionOptions().excludes());
         assertEquals(List.of(".*MapperImpl$"), args.exclusionOptions().excludeClasses());
         assertEquals(List.of("Generated"), args.exclusionOptions().excludeAnnotations());
@@ -261,11 +275,8 @@ class CliArgumentsParserTest {
 
     @Test
     void reportFormatRequiresValue() {
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--format"}));
-        assertEquals("--format requires one of: toon, json, text, junit, none", error.getMessage());
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--format="}));
+        assertParseError("--format requires one of: toon, json, text, junit, none", "--format");
+        assertParseError("--format requires one of: toon, json, text, junit, none", "--format=");
     }
 
     @Test
@@ -284,10 +295,8 @@ class CliArgumentsParserTest {
 
     @Test
     void thresholdRequiresValue() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--threshold"}));
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--threshold="}));
+        assertParseError("--threshold requires a finite number greater than 0", "--threshold");
+        assertParseError("--threshold requires a finite number greater than 0", "--threshold=");
     }
 
     @Test
@@ -312,10 +321,8 @@ class CliArgumentsParserTest {
 
     @Test
     void outputRequiresValue() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--output"}));
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--output="}));
+        assertParseError("--output requires a path", "--output");
+        assertParseError("--output requires a path", "--output=");
     }
 
     @Test
@@ -326,10 +333,8 @@ class CliArgumentsParserTest {
 
     @Test
     void junitReportRequiresValue() {
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--junit-report"}));
-        assertThrows(IllegalArgumentException.class,
-                () -> CliArgumentsParser.parse(new String[]{"--junit-report="}));
+        assertParseError("--junit-report requires a path", "--junit-report");
+        assertParseError("--junit-report requires a path", "--junit-report=");
     }
 
     @Test
@@ -394,6 +399,14 @@ class CliArgumentsParserTest {
 
         assertEquals(CliMode.EXPLICIT_FILES, args.mode());
         assertEquals(List.of("src/main/java/demo/A.java"), args.fileArgs());
+    }
+
+    private static void assertParseError(String expectedMessage, String... args) {
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(args)
+        );
+        assertEquals(expectedMessage, error.getMessage());
     }
 }
 
