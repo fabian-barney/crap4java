@@ -75,7 +75,7 @@ final class ReportFormatter {
     private static List<TableColumn> methodTextColumns() {
         return List.of(
                 new TableColumn("Method", Alignment.LEFT, CrapReport.MethodReport::methodName),
-                new TableColumn("Class", Alignment.LEFT, CrapReport.MethodReport::className),
+                new TableColumn("Src", Alignment.LEFT, CrapReport.MethodReport::sourcePath),
                 new TableColumn("CC", Alignment.RIGHT, method -> Integer.toString(method.complexity())),
                 new TableColumn("Cov%", Alignment.RIGHT, method -> formatCoverage(method.coveragePercent())),
                 new TableColumn("CovKind", Alignment.LEFT, CrapReport.MethodReport::coverageKind),
@@ -182,7 +182,7 @@ final class ReportFormatter {
                 method.coveragePercent(),
                 method.coverageKind(),
                 method.methodName(),
-                method.className(),
+                method.sourcePath(),
                 method.startLine(),
                 method.endLine()
         );
@@ -296,7 +296,7 @@ final class ReportFormatter {
         sorted.sort(Comparator
                 .comparing((CrapReport.MethodReport e) -> e.crapScore() == null)
                 .thenComparing(e -> e.crapScore() == null ? 0.0 : -e.crapScore())
-                .thenComparing(CrapReport.MethodReport::className)
+                .thenComparing(CrapReport.MethodReport::sourcePath)
                 .thenComparing(CrapReport.MethodReport::methodName)
                 .thenComparingInt(CrapReport.MethodReport::startLine));
         return sorted;

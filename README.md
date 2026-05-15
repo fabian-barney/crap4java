@@ -144,9 +144,10 @@ The CLI writes only the requested primary report format to stdout unless
 `--format none` when you only want the exit status or a JUnit sidecar.
 
 Machine-readable primary reports include top-level `status` (`passed` or
-`failed`) and `threshold` values, plus method-level `coverageKind` values
-identifying the coverage input used for each CRAP score (`instruction`,
-`branch`, or `N/A`).
+`failed`) and `threshold` values. Method entries use compact fields `status`,
+`crap`, `cc`, `cov`, `covKind`, `method`, `src`, `lineStart`, and `lineEnd`.
+`src` is the project-relative source file path. `coverageKind` identifies the
+coverage input used for each CRAP score (`instruction`, `branch`, or `N/A`).
 
 `--agent` is a composite shortcut for `--format toon --failures-only
 --omit-redundancy` when those settings are not overridden explicitly.

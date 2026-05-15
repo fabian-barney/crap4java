@@ -50,7 +50,7 @@ class ReportFormatterTest {
         String passed = lines.get(headerIndex + 3);
 
         assertTrue(failed.contains("veryLongMethodNameForWideColumn"));
-        assertTrue(failed.contains("demo.really.LongClassNameForWideColumn"));
+        assertTrue(failed.contains("src/main/java/demo/Sample.java"));
         assertEquals(header.length(), separator.length());
         assertEquals(header.length(), failed.length());
         assertEquals(header.length(), passed.length());
@@ -79,7 +79,7 @@ class ReportFormatterTest {
                       "cov": 10.0,
                       "covKind": "instruction",
                       "method": "danger",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 4,
                       "lineEnd": 6
                     },
@@ -90,7 +90,7 @@ class ReportFormatterTest {
                       "cov": null,
                       "covKind": "N/A",
                       "method": "unknown",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 20,
                       "lineEnd": 22
                     }
@@ -111,8 +111,8 @@ class ReportFormatterTest {
         assertTrue(report.contains("status: passed"));
         assertTrue(report.contains("threshold: 8"));
         assertTrue(report.contains("methods[2]{status,crap,cc,cov,covKind,method,src,lineStart,lineEnd}:"));
-        assertTrue(report.contains("passed,4.5,3,85,instruction,foo,demo.Sample,4,6"));
-        assertTrue(report.contains("skipped,null,2,null,N/A,bar,demo.Sample,9,11"));
+        assertTrue(report.contains("passed,4.5,3,85,instruction,foo,src/main/java/demo/Sample.java,4,6"));
+        assertTrue(report.contains("skipped,null,2,null,N/A,bar,src/main/java/demo/Sample.java,9,11"));
     }
 
     @Test
@@ -143,7 +143,7 @@ class ReportFormatterTest {
                       "cov": 10.0,
                       "covKind": "instruction",
                       "method": "danger",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 4,
                       "lineEnd": 6
                     }
@@ -174,7 +174,7 @@ class ReportFormatterTest {
                       "cov": 10.0,
                       "covKind": "instruction",
                       "method": "danger",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 4,
                       "lineEnd": 6
                     }
@@ -238,7 +238,7 @@ class ReportFormatterTest {
                       "cov": 10.0,
                       "covKind": "instruction",
                       "method": "danger",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 4,
                       "lineEnd": 6
                     },
@@ -248,7 +248,7 @@ class ReportFormatterTest {
                       "cov": null,
                       "covKind": "N/A",
                       "method": "unknown",
-                      "src": "demo.Sample",
+                      "src": "src/main/java/demo/Sample.java",
                       "lineStart": 20,
                       "lineEnd": 22
                     }
@@ -269,8 +269,8 @@ class ReportFormatterTest {
         assertTrue(report.contains("status: passed"));
         assertTrue(report.contains("threshold: 8"));
         assertTrue(report.contains("methods[2]{crap,cc,cov,covKind,method,src,lineStart,lineEnd}:"));
-        assertTrue(report.contains("4.5,3,85,instruction,foo,demo.Sample,4,6"));
-        assertTrue(report.contains("null,2,null,N/A,bar,demo.Sample,9,11"));
+        assertTrue(report.contains("4.5,3,85,instruction,foo,src/main/java/demo/Sample.java,4,6"));
+        assertTrue(report.contains("null,2,null,N/A,bar,src/main/java/demo/Sample.java,9,11"));
         assertFalse(report.contains("methods[2]{status,"));
     }
 
@@ -316,7 +316,7 @@ class ReportFormatterTest {
         assertTrue(report.contains("status: failed"));
         assertTrue(report.contains("threshold: 8"));
         assertTrue(report.contains("methods[1]{crap,cc,cov,covKind,method,src,lineStart,lineEnd}:"));
-        assertTrue(report.contains("9.645,5,10,instruction,danger,demo.Sample,4,6"));
+        assertTrue(report.contains("9.645,5,10,instruction,danger,src/main/java/demo/Sample.java,4,6"));
     }
 
     @Test
@@ -429,7 +429,7 @@ class ReportFormatterTest {
     private static int tableHeaderIndex(List<String> lines, String firstColumn) {
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
-            if (line.startsWith(firstColumn) && line.contains("Class") && line.contains("CovKind")) {
+            if (line.startsWith(firstColumn) && line.contains("Src") && line.contains("CovKind")) {
                 return index;
             }
         }

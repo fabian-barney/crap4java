@@ -810,8 +810,8 @@ class MainTest {
         );
 
         assertEquals(0, exit);
-        assertTrue(utf8(out).contains("demo.app.AppSample"));
-        assertTrue(utf8(out).contains("demo.lib.LibSample"));
+        assertTrue(utf8(out).contains("app/src/main/java/demo/app/AppSample.java"));
+        assertTrue(utf8(out).contains("lib/src/main/java/demo/lib/LibSample.java"));
         assertEquals("", utf8(err));
     }
 
