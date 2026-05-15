@@ -72,6 +72,26 @@ class CrapJavaCheckMojoTest {
     }
 
     @Test
+    void routesRunnerOutputThroughMavenLog() throws Exception {
+        Path root = tempDir.resolve("root");
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        runner.emitOutput = true;
+        RecordingLog log = new RecordingLog();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        mojo.setLog(log);
+        setField(mojo, "session", session(List.of(project(root, "root")), root));
+        setField(mojo, "project", project(root, "root"));
+
+        mojo.execute();
+
+        assertEquals(List.of("Report line", "partial report"), log.infoMessages);
+        assertEquals(List.of("Warning: generated coverage missing"), log.warnMessages);
+        assertEquals(List.of("Execution failed"), log.errorMessages);
+    }
+
+    @Test
     void usesConfiguredJunitReport() throws Exception {
         Path root = tempDir.resolve("root");
         writeCoverageReport(root);
@@ -400,6 +420,7 @@ class CrapJavaCheckMojoTest {
         private @Nullable Path projectRoot;
         private int exitCode;
         private @Nullable Exception failure;
+        private boolean emitOutput;
 
         @Override
         public int run(boolean useExistingCoverage, String[] args, Path projectRoot, java.io.PrintStream out, java.io.PrintStream err)
@@ -411,11 +432,18 @@ class CrapJavaCheckMojoTest {
             if (failure != null) {
                 throw failure;
             }
+            if (emitOutput) {
+                out.println("Report line");
+                out.print("partial report");
+                out.flush();
+                err.println("Warning: generated coverage missing");
+                err.println("Execution failed");
+            }
             return exitCode;
         }
     }
 
-    private static final class SilentLog implements Log {
+    private static class SilentLog implements Log {
 
         @Override
         public boolean isDebugEnabled() {
@@ -483,6 +511,27 @@ class CrapJavaCheckMojoTest {
 
         @Override
         public void error(Throwable error) {
+        }
+    }
+
+    private static final class RecordingLog extends SilentLog {
+        private final List<String> infoMessages = new ArrayList<>();
+        private final List<String> warnMessages = new ArrayList<>();
+        private final List<String> errorMessages = new ArrayList<>();
+
+        @Override
+        public void info(CharSequence content) {
+            infoMessages.add(content.toString());
+        }
+
+        @Override
+        public void warn(CharSequence content) {
+            warnMessages.add(content.toString());
+        }
+
+        @Override
+        public void error(CharSequence content) {
+            errorMessages.add(content.toString());
         }
     }
 }
