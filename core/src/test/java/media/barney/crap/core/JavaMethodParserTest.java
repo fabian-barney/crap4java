@@ -4,8 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
+import javax.tools.Diagnostic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaMethodParserTest {
 
@@ -96,6 +99,14 @@ class JavaMethodParserTest {
         List<MethodDescriptor> methods = JavaMethodParser.parse("demo.Sample", source);
 
         assertEquals(List.of(new MethodDescriptor("demo.Sample", "helper", 4, 6, 1)), methods);
+    }
+
+    @Test
+    void rejectsUnknownSourcePositionRanges() {
+        assertFalse(JavaMethodParser.hasKnownLineRange(Diagnostic.NOPOS, 10));
+        assertFalse(JavaMethodParser.hasKnownLineRange(10, Diagnostic.NOPOS));
+        assertFalse(JavaMethodParser.hasKnownLineRange(10, 10));
+        assertTrue(JavaMethodParser.hasKnownLineRange(10, 11));
     }
 
     @Test

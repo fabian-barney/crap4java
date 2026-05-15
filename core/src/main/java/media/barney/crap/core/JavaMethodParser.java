@@ -19,6 +19,7 @@ import com.sun.source.util.TreeScanner;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 
+import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
@@ -64,6 +65,12 @@ final class JavaMethodParser {
 
     static URI sourceUri(String className) {
         return URI.create("string:///" + sourcePath(className));
+    }
+
+    static boolean hasKnownLineRange(long start, long endExclusive) {
+        return start != Diagnostic.NOPOS
+                && endExclusive != Diagnostic.NOPOS
+                && endExclusive > start;
     }
 
     private static List<MethodDescriptor> collectMethods(JavacTask task,
@@ -118,8 +125,11 @@ final class JavaMethodParser {
 
             long start = positions.getStartPosition(unit, node);
             long bodyEndExclusive = positions.getEndPosition(unit, node.getBody());
+            if (!hasKnownLineRange(start, bodyEndExclusive)) {
+                return null;
+            }
             int startLine = lineNumber(start);
-            int endLine = lineNumber(Math.decrementExact((int) bodyEndExclusive));
+            int endLine = lineNumber(Math.decrementExact(bodyEndExclusive));
             int complexity = ComplexityCounter.count(node);
             methods.add(new MethodDescriptor(
                     currentClassName(),
