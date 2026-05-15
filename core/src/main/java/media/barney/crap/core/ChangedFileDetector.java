@@ -1,24 +1,42 @@
 package media.barney.crap.core;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 
 final class ChangedFileDetector {
+
+    private static final Duration GIT_STATUS_TIMEOUT = Duration.ofMinutes(10);
+    private static final Duration TERMINATION_TIMEOUT = Duration.ofSeconds(5);
+    private static final List<String> GIT_COMMAND = List.of("git");
 
     private ChangedFileDetector() {
     }
 
     static List<Path> changedJavaFiles(Path projectRoot) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder("git", "-C", projectRoot.toString(), "status", "--porcelain=v1", "-z", "--untracked-files=all")
+        return changedJavaFiles(projectRoot, GIT_COMMAND, GIT_STATUS_TIMEOUT);
+    }
+
+    static List<Path> changedJavaFiles(Path projectRoot,
+                                       List<String> gitCommand,
+                                       Duration timeout) throws IOException, InterruptedException {
+        List<String> command = gitStatusCommand(projectRoot, gitCommand);
+        Process process = new ProcessBuilder(command)
                 .redirectErrorStream(true)
                 .start();
 
-        byte[] outputBytes = process.getInputStream().readAllBytes();
-        int exit = process.waitFor();
+        process.getOutputStream().close();
+        CompletableFuture<byte[]> outputFuture = readOutput(process);
+        int exit = waitFor(process, command, timeout);
+        byte[] outputBytes = outputBytes(outputFuture);
         String output = new String(outputBytes, StandardCharsets.UTF_8);
         if (exit != 0) {
             throw new IllegalStateException("git status failed: " + output);
@@ -41,6 +59,54 @@ final class ChangedFileDetector {
         }
         files.sort(Path::compareTo);
         return files;
+    }
+
+    private static List<String> gitStatusCommand(Path projectRoot, List<String> gitCommand) {
+        List<String> command = new ArrayList<>(gitCommand);
+        command.add("-C");
+        command.add(projectRoot.toString());
+        command.add("status");
+        command.add("--porcelain=v1");
+        command.add("-z");
+        command.add("--untracked-files=all");
+        return command;
+    }
+
+    private static CompletableFuture<byte[]> readOutput(Process process) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (var input = process.getInputStream()) {
+                return input.readAllBytes();
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+    }
+
+    private static int waitFor(Process process,
+                               List<String> command,
+                               Duration timeout) throws InterruptedException {
+        if (process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            return process.exitValue();
+        }
+        process.destroyForcibly();
+        if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            throw new IllegalStateException(
+                    "git status timed out after " + timeout + " and could not be terminated within "
+                            + TERMINATION_TIMEOUT + ": " + String.join(" ", command));
+        }
+        throw new IllegalStateException("git status timed out after " + timeout + ": " + String.join(" ", command));
+    }
+
+    private static byte[] outputBytes(CompletableFuture<byte[]> outputFuture) throws IOException, InterruptedException {
+        try {
+            return outputFuture.get();
+        } catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof UncheckedIOException io) {
+                throw io.getCause();
+            }
+            throw new IOException("Unable to read git status output", cause);
+        }
     }
 
     static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot) throws IOException, InterruptedException {

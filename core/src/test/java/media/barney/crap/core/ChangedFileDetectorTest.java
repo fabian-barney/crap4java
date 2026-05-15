@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -152,6 +154,18 @@ class ChangedFileDetectorTest {
         assertEquals(List.of(renamed), changed);
     }
 
+    @Test
+    void timesOutHungGitStatus() {
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> ChangedFileDetector.changedJavaFiles(
+                        tempDir,
+                        javaSleepingGitCommand(),
+                        Duration.ofMillis(100)
+                ));
+
+        assertTrue(Objects.requireNonNull(error.getMessage()).contains("git status timed out after PT0.1S"));
+    }
+
     private static void run(Path dir, String... command) throws IOException, InterruptedException {
         Process process = new ProcessBuilder(command)
                 .directory(dir.toFile())
@@ -160,6 +174,26 @@ class ChangedFileDetectorTest {
         if (process.waitFor() != 0) {
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             throw new IllegalStateException(output);
+        }
+    }
+
+    private static List<String> javaSleepingGitCommand() {
+        return List.of(
+                javaExecutable(),
+                "-cp",
+                System.getProperty("java.class.path"),
+                SleepingGit.class.getName()
+        );
+    }
+
+    private static String javaExecutable() {
+        String executable = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
+        return Path.of(System.getProperty("java.home"), "bin", executable).toString();
+    }
+
+    public static final class SleepingGit {
+        public static void main(String[] args) throws InterruptedException {
+            Thread.sleep(Duration.ofSeconds(30).toMillis());
         }
     }
 }
