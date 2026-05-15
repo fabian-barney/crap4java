@@ -12,11 +12,13 @@ import java.util.List;
 import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.SimpleJavaFileObject;
+import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class JavaMethodParserTest {
 
@@ -140,7 +142,7 @@ class JavaMethodParserTest {
 
         List<MethodDescriptor> methods = JavaMethodParser.collectMethods(unit, unknownPositions);
 
-        assertEquals(List.of(), methods);
+        assertTrue(methods.isEmpty(), "methods with unknown source positions should be skipped");
     }
 
     @Test
@@ -305,23 +307,24 @@ class JavaMethodParserTest {
 
     private static CompilationUnitTree parseUnit(String source) throws IOException {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            throw new IllegalStateException("No system Java compiler is available");
+        assumeTrue(compiler != null, "system Java compiler is required");
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null)) {
+            JavacTask task = (JavacTask) compiler.getTask(
+                    null,
+                    fileManager,
+                    null,
+                    List.of("-proc:none"),
+                    null,
+                    List.of(new SimpleJavaFileObject(URI.create("string:///Sample.java"),
+                            SimpleJavaFileObject.Kind.SOURCE) {
+                        @Override
+                        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                            return source;
+                        }
+                    })
+            );
+            return task.parse().iterator().next();
         }
-        JavacTask task = (JavacTask) compiler.getTask(
-                null,
-                null,
-                null,
-                List.of("-proc:none"),
-                null,
-                List.of(new SimpleJavaFileObject(URI.create("string:///Sample.java"), SimpleJavaFileObject.Kind.SOURCE) {
-                    @Override
-                    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-                        return source;
-                    }
-                })
-        );
-        return task.parse().iterator().next();
     }
 }
 
