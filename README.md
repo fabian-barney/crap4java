@@ -147,6 +147,10 @@ java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b
 The CLI writes only the requested primary report format to stdout unless
 `--output` is set. Warnings and threshold errors are written to stderr. Use
 `--format none` when you only want the exit status or a JUnit sidecar.
+Report paths passed to `--output` and `--junit-report` are filesystem targets:
+relative paths resolve against the analyzed project root, absolute paths remain
+absolute, and normalized `..` segments may target locations outside that root.
+Keep those values fixed or otherwise trusted in CI configurations.
 
 Machine-readable primary reports include top-level `status` (`passed` or
 `failed`) and `threshold` values. Method entries use compact fields `status`,
