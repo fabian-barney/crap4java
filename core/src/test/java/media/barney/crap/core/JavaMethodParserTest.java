@@ -1,10 +1,18 @@
 package media.barney.crap.core;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.JavacTask;
+import com.sun.source.util.SourcePositions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import javax.tools.Diagnostic;
+import javax.tools.JavaCompiler;
+import javax.tools.SimpleJavaFileObject;
+import javax.tools.ToolProvider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -107,6 +115,32 @@ class JavaMethodParserTest {
         assertFalse(JavaMethodParser.hasKnownSourceRange(10, Diagnostic.NOPOS));
         assertFalse(JavaMethodParser.hasKnownSourceRange(10, 10));
         assertTrue(JavaMethodParser.hasKnownSourceRange(10, 11));
+    }
+
+    @Test
+    void skipsParsedMethodsWithUnknownSourcePositions() throws IOException {
+        CompilationUnitTree unit = parseUnit("""
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+        SourcePositions unknownPositions = new SourcePositions() {
+            @Override
+            public long getStartPosition(CompilationUnitTree file, Tree tree) {
+                return Diagnostic.NOPOS;
+            }
+
+            @Override
+            public long getEndPosition(CompilationUnitTree file, Tree tree) {
+                return Diagnostic.NOPOS;
+            }
+        };
+
+        List<MethodDescriptor> methods = JavaMethodParser.collectMethods(unit, unknownPositions);
+
+        assertEquals(List.of(), methods);
     }
 
     @Test
@@ -267,6 +301,27 @@ class JavaMethodParserTest {
         assertEquals("demo/Sample.java", JavaMethodParser.sourcePath("demo.Sample.java"));
         assertEquals(URI.create("string:///demo/Sample.java"), JavaMethodParser.sourceUri("demo.Sample"));
         assertEquals(URI.create("string:///demo/Sample.java"), JavaMethodParser.sourceUri("demo.Sample.java"));
+    }
+
+    private static CompilationUnitTree parseUnit(String source) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            throw new IllegalStateException("No system Java compiler is available");
+        }
+        JavacTask task = (JavacTask) compiler.getTask(
+                null,
+                null,
+                null,
+                List.of("-proc:none"),
+                null,
+                List.of(new SimpleJavaFileObject(URI.create("string:///Sample.java"), SimpleJavaFileObject.Kind.SOURCE) {
+                    @Override
+                    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                        return source;
+                    }
+                })
+        );
+        return task.parse().iterator().next();
     }
 }
 

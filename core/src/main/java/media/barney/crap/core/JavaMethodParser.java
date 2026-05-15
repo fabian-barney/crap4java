@@ -75,12 +75,17 @@ final class JavaMethodParser {
 
     private static List<MethodDescriptor> collectMethods(JavacTask task,
                                                          Iterable<? extends CompilationUnitTree> units) {
-        Trees trees = Trees.instance(task);
         List<MethodDescriptor> methods = new ArrayList<>();
+        Trees trees = Trees.instance(task);
         for (CompilationUnitTree unit : units) {
-            SourcePositions positions = trees.getSourcePositions();
-            new MethodScanner(unit, positions, methods).scan(unit, null);
+            methods.addAll(collectMethods(unit, trees.getSourcePositions()));
         }
+        return methods;
+    }
+
+    static List<MethodDescriptor> collectMethods(CompilationUnitTree unit, SourcePositions positions) {
+        List<MethodDescriptor> methods = new ArrayList<>();
+        new MethodScanner(unit, positions, methods).scan(unit, null);
         return methods;
     }
 
