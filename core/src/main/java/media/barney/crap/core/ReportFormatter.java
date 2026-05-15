@@ -38,31 +38,59 @@ final class ReportFormatter {
     }
 
     static String format(CrapReport report, ReportFormat format, boolean failuresOnly, boolean omitRedundancy) {
+        return format(report, format, failuresOnly, omitRedundancy, true);
+    }
+
+    static String format(CrapReport report,
+                         ReportFormat format,
+                         boolean failuresOnly,
+                         boolean omitRedundancy,
+                         boolean includeExclusionAudit) {
         if (format == ReportFormat.NONE) {
             return "";
         }
-        return formatFull(failuresOnly ? failuresOnly(report) : report, format, omitRedundancy);
+        return formatFull(failuresOnly ? failuresOnly(report) : report, format, omitRedundancy, includeExclusionAudit);
     }
 
-    private static String formatFull(CrapReport report, ReportFormat format, boolean omitRedundancy) {
+    private static String formatFull(CrapReport report,
+                                     ReportFormat format,
+                                     boolean omitRedundancy,
+                                     boolean includeExclusionAudit) {
         return switch (format) {
-            case TOON -> JToon.encodeJson(formatJson(report, omitRedundancy));
-            case JSON -> formatJson(report, omitRedundancy);
-            case TEXT -> formatText(report, omitRedundancy);
-            case JUNIT -> formatJunit(report, omitRedundancy);
+            case TOON -> JToon.encodeJson(formatJson(report, omitRedundancy, includeExclusionAudit));
+            case JSON -> formatJson(report, omitRedundancy, includeExclusionAudit);
+            case TEXT -> formatText(report, omitRedundancy, includeExclusionAudit);
+            case JUNIT -> formatJunit(report, omitRedundancy, includeExclusionAudit);
             case NONE -> "";
         };
     }
 
-    private static String formatText(CrapReport report, boolean omitRedundancy) {
+    private static String formatText(CrapReport report, boolean omitRedundancy, boolean includeExclusionAudit) {
         List<CrapReport.MethodReport> sorted = sortedMethods(report.methods());
         StringBuilder builder = new StringBuilder();
         builder.append("CRAP Report\n");
         builder.append("===========\n");
         builder.append("Status: ").append(report.status()).append('\n');
         builder.append("Threshold: ").append(formatDisplayNumber(report.threshold())).append('\n');
+        if (includeExclusionAudit && hasExclusionAudit(report.exclusions())) {
+            appendExclusionAudit(builder, report.exclusions());
+        }
         appendMethodTable(builder, omitRedundancy ? methodTextColumns() : fullTextColumns(), sorted);
         return builder.toString();
+    }
+
+    private static void appendExclusionAudit(StringBuilder builder, SourceExclusionAudit audit) {
+        builder.append("Exclusions:\n");
+        builder.append("  Candidate files: ").append(audit.candidateFiles()).append('\n');
+        builder.append("  Analyzed files: ").append(audit.analyzedFiles()).append('\n');
+        builder.append("  Excluded files: ").append(audit.excludedFileCount()).append('\n');
+        for (SourceExclusionAudit.ExclusionCount count : audit.excludedFiles()) {
+            builder.append("    ").append(count.reason()).append(": ").append(count.count()).append('\n');
+        }
+        builder.append("  Excluded classes: ").append(audit.excludedClassCount()).append('\n');
+        for (SourceExclusionAudit.ExclusionCount count : audit.excludedClasses()) {
+            builder.append("    ").append(count.reason()).append(": ").append(count.count()).append('\n');
+        }
     }
 
     private static List<TableColumn> fullTextColumns() {
@@ -146,12 +174,12 @@ final class ReportFormatter {
         builder.append('\n');
     }
 
-    private static String formatJson(CrapReport report, boolean omitRedundancy) {
-        return writeJson(jsonReport(report, omitRedundancy));
+    private static String formatJson(CrapReport report, boolean omitRedundancy, boolean includeExclusionAudit) {
+        return writeJson(jsonReport(report, omitRedundancy, includeExclusionAudit));
     }
 
-    private static String formatJunit(CrapReport report, boolean omitRedundancy) {
-        return writeXml(junitTestSuites(report, omitRedundancy));
+    private static String formatJunit(CrapReport report, boolean omitRedundancy, boolean includeExclusionAudit) {
+        return writeXml(junitTestSuites(report, omitRedundancy, includeExclusionAudit));
     }
 
     private static int countStatus(List<CrapReport.MethodReport> methods, MethodStatus status) {
@@ -164,13 +192,25 @@ final class ReportFormatter {
         return count;
     }
 
-    private static JsonReport jsonReport(CrapReport report, boolean omitRedundancy) {
+    private static JsonReport jsonReport(CrapReport report, boolean omitRedundancy, boolean includeExclusionAudit) {
         return new JsonReport(
                 report.status(),
                 report.threshold(),
+                includeExclusionAudit && hasExclusionAudit(report.exclusions()) ? jsonExclusions(report.exclusions()) : null,
                 sortedMethods(report.methods()).stream()
                         .map(method -> jsonMethod(method, omitRedundancy))
                         .toList()
+        );
+    }
+
+    private static JsonExclusions jsonExclusions(SourceExclusionAudit audit) {
+        return new JsonExclusions(
+                audit.candidateFiles(),
+                audit.analyzedFiles(),
+                audit.excludedFileCount(),
+                audit.excludedClassCount(),
+                audit.excludedFiles(),
+                audit.excludedClasses()
         );
     }
 
@@ -196,7 +236,9 @@ final class ReportFormatter {
         }
     }
 
-    private static JunitTestSuites junitTestSuites(CrapReport report, boolean omitRedundancy) {
+    private static JunitTestSuites junitTestSuites(CrapReport report,
+                                                   boolean omitRedundancy,
+                                                   boolean includeExclusionAudit) {
         List<CrapReport.MethodReport> methods = sortedMethods(report.methods());
         int failed = countStatus(methods, MethodStatus.FAILED);
         int skipped = countStatus(methods, MethodStatus.SKIPPED);
@@ -207,7 +249,7 @@ final class ReportFormatter {
                 0,
                 skipped,
                 "0",
-                new JunitProperties(List.of(new JunitProperty("threshold", number(report.threshold())))),
+                new JunitProperties(junitSuiteProperties(report, includeExclusionAudit)),
                 methods.stream()
                         .map(method -> junitTestCase(method, report.threshold(), omitRedundancy))
                         .toList()
@@ -228,6 +270,29 @@ final class ReportFormatter {
                 junitFailure(method, threshold),
                 junitSkipped(method, threshold)
         );
+    }
+
+    private static List<JunitProperty> junitSuiteProperties(CrapReport report, boolean includeExclusionAudit) {
+        List<JunitProperty> properties = new ArrayList<>();
+        properties.add(new JunitProperty("threshold", number(report.threshold())));
+        if (includeExclusionAudit && hasExclusionAudit(report.exclusions())) {
+            SourceExclusionAudit audit = report.exclusions();
+            properties.add(new JunitProperty("exclusion.candidateFiles", Integer.toString(audit.candidateFiles())));
+            properties.add(new JunitProperty("exclusion.analyzedFiles", Integer.toString(audit.analyzedFiles())));
+            properties.add(new JunitProperty("exclusion.excludedFiles", Integer.toString(audit.excludedFileCount())));
+            properties.add(new JunitProperty("exclusion.excludedClasses", Integer.toString(audit.excludedClassCount())));
+            addCountProperties(properties, "exclusion.file", audit.excludedFiles());
+            addCountProperties(properties, "exclusion.class", audit.excludedClasses());
+        }
+        return properties;
+    }
+
+    private static void addCountProperties(List<JunitProperty> properties,
+                                           String prefix,
+                                           List<SourceExclusionAudit.ExclusionCount> counts) {
+        for (SourceExclusionAudit.ExclusionCount count : counts) {
+            properties.add(new JunitProperty(prefix + "." + count.reason(), Integer.toString(count.count())));
+        }
     }
 
     private static JunitProperties junitProperties(CrapReport.MethodReport method, boolean omitRedundancy) {
@@ -314,7 +379,14 @@ final class ReportFormatter {
         List<CrapReport.MethodReport> failedMethods = report.methods().stream()
                 .filter(method -> method.status() == MethodStatus.FAILED)
                 .toList();
-        return new CrapReport(report.status(), report.threshold(), failedMethods);
+        return new CrapReport(report.status(), report.threshold(), failedMethods, report.exclusions());
+    }
+
+    private static boolean hasExclusionAudit(SourceExclusionAudit audit) {
+        return audit.candidateFiles() != 0
+                || audit.analyzedFiles() != 0
+                || audit.excludedFileCount() != 0
+                || audit.excludedClassCount() != 0;
     }
 
     private static String formatCoverage(@Nullable Double coverage) {
@@ -342,7 +414,19 @@ final class ReportFormatter {
     private record JsonReport(
             String status,
             double threshold,
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            @Nullable JsonExclusions exclusions,
             List<JsonMethod> methods
+    ) {
+    }
+
+    private record JsonExclusions(
+            int candidateFiles,
+            int analyzedFiles,
+            int excludedFiles,
+            int excludedClasses,
+            List<SourceExclusionAudit.ExclusionCount> excludedFileReasons,
+            List<SourceExclusionAudit.ExclusionCount> excludedClassReasons
     ) {
     }
 

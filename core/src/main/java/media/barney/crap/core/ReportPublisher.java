@@ -23,7 +23,8 @@ final class ReportPublisher {
                 report,
                 options.format(),
                 options.failuresOnly(),
-                options.omitRedundancy()
+                options.omitRedundancy(),
+                options.includeExclusionAudit()
         );
         if (options.outputPath() == null) {
             out.print(content);

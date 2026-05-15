@@ -41,17 +41,28 @@ final class CliApplication {
         CliArguments parsed = parse.arguments();
         try {
             Main.writeThresholdWarning(err, parsed.threshold());
-            List<Path> filesToAnalyze = filesForMode(parsed);
+            SourceExclusionAudit.Builder audit = SourceExclusionAudit.builder();
+            SourceExclusionMatcher exclusions = SourceExclusionMatcher.create(projectRoot, parsed.exclusionOptions());
+            List<Path> filesToAnalyze = SourceExclusionMatcher.filterFiles(
+                    filesForMode(parsed),
+                    exclusions,
+                    audit
+            );
             if (filesToAnalyze.isEmpty()) {
-                CrapReport report = CrapReport.from(List.of(), parsed.threshold());
+                CrapReport report = CrapReport.from(List.of(), parsed.threshold(), audit.build());
                 ReportPublisher.publish(report, reportOptions(parsed), out);
                 return 0;
             }
 
-            List<MethodMetrics> metrics = analyzeByModule(filesToAnalyze, parsed.buildToolSelection());
+            List<MethodMetrics> metrics = analyzeByModule(
+                    filesToAnalyze,
+                    parsed.buildToolSelection(),
+                    exclusions,
+                    audit
+            );
             metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
                     Comparator.nullsLast(Comparator.reverseOrder())));
-            CrapReport report = CrapReport.from(metrics, parsed.threshold());
+            CrapReport report = CrapReport.from(metrics, parsed.threshold(), audit.build());
             ReportPublisher.publish(report, reportOptions(parsed), out);
 
             double max = Main.maxCrap(metrics);
@@ -67,7 +78,9 @@ final class CliApplication {
     }
 
     private List<MethodMetrics> analyzeByModule(List<Path> filesToAnalyze,
-                                                BuildToolSelection buildToolSelection) throws Exception {
+                                                BuildToolSelection buildToolSelection,
+                                                SourceExclusionMatcher exclusions,
+                                                SourceExclusionAudit.Builder audit) throws Exception {
         List<MethodMetrics> metrics = new ArrayList<>();
         for (Map.Entry<ProjectModule, List<Path>> entry : groupByModule(filesToAnalyze, buildToolSelection).entrySet()) {
             ProjectModule module = entry.getKey();
@@ -78,7 +91,7 @@ final class CliApplication {
             if (!Files.exists(jacocoXml)) {
                 err.println("Warning: JaCoCo XML not found at " + jacocoXml + ". Coverage will be N/A.");
             }
-            metrics.addAll(CrapAnalyzer.analyze(projectRoot, entry.getValue(), jacocoXml));
+            metrics.addAll(CrapAnalyzer.analyze(projectRoot, entry.getValue(), jacocoXml, exclusions, audit));
         }
         return metrics;
     }
@@ -117,7 +130,8 @@ final class CliApplication {
                 parsed.failuresOnly(),
                 parsed.omitRedundancy(),
                 outputPath(parsed.outputPath()),
-                outputPath(parsed.junitReportPath())
+                outputPath(parsed.junitReportPath()),
+                !parsed.agent()
         );
     }
 

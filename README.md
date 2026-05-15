@@ -111,6 +111,10 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 --agent               Apply AI-agent defaults: `toon`, failures only, omit redundancy
 --failures-only[=true|false]  Only include failing methods in the primary report
 --omit-redundancy[=true|false]  Omit redundant method fields from the primary report
+--exclude <glob>     Exclude source paths by normalized relative glob; repeatable
+--exclude-class <regex>  Exclude fully-qualified class names by regex; repeatable
+--exclude-annotation <name>  Exclude classes by annotation name; repeatable
+--use-default-exclusions[=true|false]  Enable built-in generated-code exclusions (`true` by default)
 --output <path>       Write the selected output format to a file instead of stdout
 --junit-report <path> Also write a JUnit XML report for CI test-report UIs
 --threshold <number>  Override the CRAP threshold (`8.0` by default)
@@ -134,6 +138,7 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --agent
 java -jar cli/target/crap-java-cli-0.5.0.jar --agent --format junit --output target/crap-java/TEST-crap-java-primary.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --threshold 6
+java -jar cli/target/crap-java-cli-0.5.0.jar --exclude 'module-a/**' --exclude-class '.*MapperImpl$'
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b
@@ -148,6 +153,23 @@ Machine-readable primary reports include top-level `status` (`passed` or
 `crap`, `cc`, `cov`, `covKind`, `method`, `src`, `lineStart`, and `lineEnd`.
 `src` is the project-relative source file path. `coverageKind` identifies the
 coverage input used for each CRAP score (`instruction`, `branch`, or `N/A`).
+Full primary reports also include exclusion audit counts when any source was
+considered; optimized primary reports produced through `--agent` omit that audit
+detail by default to stay focused on actionable failures. The JUnit sidecar
+keeps the complete exclusion audit.
+
+Built-in exclusions are conservative and generated-code focused. They exclude
+source files under any directory segment containing `generated`, source files
+under `**/src/main/java-gen/**`, and classes annotated with any annotation whose
+simple name is `Generated` regardless of package. Default class-name regexes
+are `(^|.*\.)generated(\..*)?`, `(^|.*\.)gen(\..*)?`,
+`(^|.*\.)[^.]*MapperImpl$`, `(^|.*\.)Dagger[^.]*$`,
+`(^|.*\.)Hilt_[^.]*$`, and `(^|.*\.)AutoValue_[^.]*$`.
+The defaults intentionally do not exclude handwritten-looking parser/listener/
+visitor classes, `Immutable*` classes, QueryDSL metamodels, vendor trees,
+examples, migrations, bootstrap/configuration classes, or operational scripts.
+User exclusions compose with those defaults unless
+`--use-default-exclusions=false` is set.
 
 `--agent` is a composite shortcut for `--format toon --failures-only
 --omit-redundancy` when those settings are not overridden explicitly.
@@ -213,6 +235,10 @@ crapJava {
     output.set(layout.buildDirectory.file("reports/crap-java/report.json"))
     junit.set(true)
     junitReport.set(layout.buildDirectory.file("reports/crap-java/custom-junit.xml"))
+    excludes.set(listOf("module-a/**"))
+    excludeClasses.set(listOf(".*MapperImpl$"))
+    excludeAnnotations.set(listOf("Generated"))
+    useDefaultExclusions.set(true)
 }
 ```
 
@@ -311,12 +337,22 @@ mvn verify -DcrapJava.failuresOnly=false -DcrapJava.omitRedundancy=true
 mvn verify -DcrapJava.junit=false
 mvn verify -DcrapJava.junitReport=target/custom-crap-java.xml
 mvn verify -DcrapJava.threshold=6.0
+mvn verify -DcrapJava.excludes='module-a/**,**/custom-generated/**'
+mvn verify -DcrapJava.excludeClasses='.*MapperImpl$' -DcrapJava.excludeAnnotations=Generated
+mvn verify -DcrapJava.useDefaultExclusions=false
 ```
+
+In comma-separated Maven properties, escape a literal comma as `\,`, for
+example `-DcrapJava.excludeClasses='demo.Name{1\,3}$'`.
 
 Defaults: `crapJava.format=none`, `crapJava.agent=false`, and
 `crapJava.junit=true`. `crapJava.agent=true` switches the default primary report
 to TOON and defaults `crapJava.failuresOnly` and `crapJava.omitRedundancy` to
 `true` unless they are supplied explicitly.
+
+Equivalent XML configuration is available through `<excludes>`,
+`<excludeClasses>`, `<excludeAnnotations>`, and
+`<useDefaultExclusions>`.
 
 Override the JUnit XML path with:
 
