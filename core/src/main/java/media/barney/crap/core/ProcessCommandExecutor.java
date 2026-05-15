@@ -1,7 +1,10 @@
 package media.barney.crap.core;
 
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -29,12 +32,17 @@ final class ProcessCommandExecutor implements CommandExecutor {
 
     @Override
     public int run(List<String> command, Path directory) throws Exception {
+        return runWithResult(command, directory).exitCode();
+    }
+
+    @Override
+    public CommandResult runWithResult(List<String> command, Path directory) throws Exception {
         Process process = new ProcessBuilder(command)
                 .directory(directory.toFile())
                 .start();
         process.getOutputStream().close();
-        Thread stdout = pipe(process.getInputStream());
-        Thread stderr = pipe(process.getErrorStream());
+        OutputPipe stdout = pipe(process.getInputStream());
+        OutputPipe stderr = pipe(process.getErrorStream());
         if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroyForcibly();
             if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -46,20 +54,41 @@ final class ProcessCommandExecutor implements CommandExecutor {
         }
         stdout.join();
         stderr.join();
-        return process.exitValue();
+        return new CommandResult(process.exitValue(), stdout.output(), stderr.output());
     }
 
-    private Thread pipe(InputStream input) {
+    private OutputPipe pipe(InputStream input) {
+        ByteArrayOutputStream capture = new ByteArrayOutputStream();
         Thread thread = new Thread(() -> {
             try (input) {
-                input.transferTo(processOutput);
+                copyOutput(input, capture);
             } catch (Exception ex) {
                 processOutput.println("Failed to read process output: " + ex.getMessage());
             }
         }, "crap-java-process-output");
         thread.setDaemon(true);
         thread.start();
-        return thread;
+        return new OutputPipe(thread, capture);
+    }
+
+    private void copyOutput(InputStream input, ByteArrayOutputStream capture) throws IOException {
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            processOutput.write(buffer, 0, read);
+            capture.write(buffer, 0, read);
+        }
+        processOutput.flush();
+    }
+
+    private record OutputPipe(Thread thread, ByteArrayOutputStream capture) {
+        private void join() throws InterruptedException {
+            thread.join();
+        }
+
+        private String output() {
+            return capture.toString(StandardCharsets.UTF_8);
+        }
     }
 }
 

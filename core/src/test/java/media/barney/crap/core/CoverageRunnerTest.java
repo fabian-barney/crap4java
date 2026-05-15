@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,13 +52,17 @@ class CoverageRunnerTest {
 
     @Test
     void failsWhenCoverageCommandFails() {
-        RecordingExecutor executor = new RecordingExecutor(2);
+        RecordingExecutor executor = new RecordingExecutor(2, "coverage progress", "coverage failed");
         CoverageRunner runner = new CoverageRunner(executor);
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> runner.generateCoverage(new ProjectModule(tempDir, tempDir, BuildTool.GRADLE)));
 
-        assertEquals("Coverage command failed with exit 2", ex.getMessage());
+        String message = Objects.requireNonNull(ex.getMessage());
+        assertTrue(message.startsWith("Coverage command '"));
+        assertTrue(message.contains("' failed in " + tempDir.toAbsolutePath().normalize() + " with exit 2"));
+        assertTrue(message.contains("stderr:" + System.lineSeparator() + "coverage failed"));
+        assertTrue(message.contains("stdout:" + System.lineSeparator() + "coverage progress"));
     }
 
     @Test
@@ -104,11 +109,19 @@ class CoverageRunnerTest {
 
     private static final class RecordingExecutor implements CommandExecutor {
         private final int exitCode;
+        private final String stdout;
+        private final String stderr;
         private final List<List<String>> commands = new ArrayList<>();
         private final List<Path> directories = new ArrayList<>();
 
         private RecordingExecutor(int exitCode) {
+            this(exitCode, "", "");
+        }
+
+        private RecordingExecutor(int exitCode, String stdout, String stderr) {
             this.exitCode = exitCode;
+            this.stdout = stdout;
+            this.stderr = stderr;
         }
 
         @Override
@@ -116,6 +129,13 @@ class CoverageRunnerTest {
             commands.add(command);
             directories.add(directory);
             return exitCode;
+        }
+
+        @Override
+        public CommandResult runWithResult(List<String> command, Path directory) {
+            commands.add(command);
+            directories.add(directory);
+            return new CommandResult(exitCode, stdout, stderr);
         }
     }
 

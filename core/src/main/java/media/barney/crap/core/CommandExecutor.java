@@ -5,5 +5,9 @@ import java.util.List;
 
 interface CommandExecutor {
     int run(List<String> command, Path directory) throws Exception;
+
+    default CommandResult runWithResult(List<String> command, Path directory) throws Exception {
+        return CommandResult.exitCode(run(command, directory));
+    }
 }
 
