@@ -80,16 +80,17 @@ final class ChangedFileDetector {
     private static int waitFor(Process process,
                                List<String> command,
                                Duration timeout) throws InterruptedException {
-        if (process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        if (process.waitFor(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
             return process.exitValue();
         }
+        String commandText = String.join(" ", command);
         process.destroyForcibly();
         if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
             throw new IllegalStateException(
-                    "git status timed out after " + timeout + " and could not be terminated within "
-                            + TERMINATION_TIMEOUT + ": " + String.join(" ", command));
+                    "Changed-file detection command timed out after " + timeout
+                            + " and could not be terminated within " + TERMINATION_TIMEOUT + ": " + commandText);
         }
-        throw new IllegalStateException("git status timed out after " + timeout + ": " + String.join(" ", command));
+        throw new IllegalStateException("Changed-file detection command timed out after " + timeout + ": " + commandText);
     }
 
     private static OutputReader readOutput(InputStream input) {
@@ -191,6 +192,11 @@ final class ChangedFileDetector {
                 // Nothing useful can be done while already failing the git status call.
             }
             thread.interrupt();
+            try {
+                thread.join(TERMINATION_TIMEOUT.toMillis());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

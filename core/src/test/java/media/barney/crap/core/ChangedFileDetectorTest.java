@@ -163,7 +163,8 @@ class ChangedFileDetectorTest {
                         Duration.ofMillis(100)
                 ));
 
-        assertTrue(Objects.requireNonNull(error.getMessage()).contains("git status timed out after PT0.1S"));
+        assertTrue(Objects.requireNonNull(error.getMessage())
+                .contains("Changed-file detection command timed out after PT0.1S"));
     }
 
     private static void run(Path dir, String... command) throws IOException, InterruptedException {
@@ -195,7 +196,7 @@ class ChangedFileDetectorTest {
 
     public static final class SleepingGit {
         public static void main(String[] args) throws InterruptedException {
-            Thread.sleep(Duration.ofSeconds(30).toMillis());
+            Thread.sleep(Duration.ofSeconds(5).toMillis());
         }
     }
 }
