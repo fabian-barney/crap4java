@@ -136,16 +136,20 @@ class ProjectModuleResolverTest {
         return executionRoot.resolve("gradlew").toString();
     }
 
-    private static void deleteTree(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return;
-        }
-        List<Path> entries;
-        try (var paths = Files.walk(path)) {
-            entries = paths.sorted(Comparator.reverseOrder()).toList();
-        }
-        for (Path entry : entries) {
-            Files.deleteIfExists(entry);
+    private static void deleteTree(Path path) {
+        try {
+            if (!Files.exists(path)) {
+                return;
+            }
+            List<Path> entries;
+            try (var paths = Files.walk(path)) {
+                entries = paths.sorted(Comparator.reverseOrder()).toList();
+            }
+            for (Path entry : entries) {
+                Files.deleteIfExists(entry);
+            }
+        } catch (IOException ex) {
+            // Best-effort cleanup must not hide the primary assertion failure.
         }
     }
 }
