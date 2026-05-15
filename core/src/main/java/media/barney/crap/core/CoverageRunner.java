@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 
 final class CoverageRunner {
 
@@ -21,9 +22,34 @@ final class CoverageRunner {
             deleteIfExists(module.moduleRoot(), moduleRootRealPath, staleCoveragePath);
         }
 
-        int exit = executor.run(module.coverageCommand(), module.executionRoot());
-        if (exit != 0) {
-            throw new IllegalStateException("Coverage command failed with exit " + exit);
+        List<String> command = module.coverageCommand();
+        CommandResult result = executor.runWithResult(command, module.executionRoot());
+        if (result.exitCode() != 0) {
+            throw new IllegalStateException(failureMessage(module, command, result));
+        }
+    }
+
+    private String failureMessage(ProjectModule module, List<String> command, CommandResult result) {
+        StringBuilder message = new StringBuilder()
+                .append("Coverage command ")
+                .append(command)
+                .append(" failed in ")
+                .append(module.executionRoot().toAbsolutePath().normalize())
+                .append(" with exit ")
+                .append(result.exitCode());
+        appendOutput(message, "stderr", result.stderr());
+        appendOutput(message, "stdout", result.stdout());
+        return message.toString();
+    }
+
+    private void appendOutput(StringBuilder message, String label, String output) {
+        String trimmed = output.stripTrailing();
+        if (!trimmed.isEmpty()) {
+            message.append(System.lineSeparator())
+                    .append(label)
+                    .append(':')
+                    .append(System.lineSeparator())
+                    .append(trimmed);
         }
     }
 
