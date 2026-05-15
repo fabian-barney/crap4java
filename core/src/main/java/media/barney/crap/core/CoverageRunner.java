@@ -43,7 +43,7 @@ final class CoverageRunner {
     }
 
     private void appendOutput(StringBuilder message, String label, String output) {
-        String trimmed = output.strip();
+        String trimmed = output.stripTrailing();
         if (!trimmed.isEmpty()) {
             message.append(System.lineSeparator())
                     .append(label)

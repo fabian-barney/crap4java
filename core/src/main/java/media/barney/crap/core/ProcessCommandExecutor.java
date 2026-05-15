@@ -41,8 +41,8 @@ final class ProcessCommandExecutor implements CommandExecutor {
                 .directory(directory.toFile())
                 .start();
         process.getOutputStream().close();
-        OutputPipe stdout = pipe(process.getInputStream());
-        OutputPipe stderr = pipe(process.getErrorStream());
+        OutputPipe stdout = pipe(process.getInputStream(), "stdout");
+        OutputPipe stderr = pipe(process.getErrorStream(), "stderr");
         if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
             process.destroyForcibly();
             if (!process.waitFor(TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -57,7 +57,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
         return new CommandResult(process.exitValue(), stdout.output(), stderr.output());
     }
 
-    private OutputPipe pipe(InputStream input) {
+    private OutputPipe pipe(InputStream input, String label) {
         BoundedOutputCapture capture = new BoundedOutputCapture();
         Thread thread = new Thread(() -> {
             try (input) {
@@ -65,7 +65,7 @@ final class ProcessCommandExecutor implements CommandExecutor {
             } catch (Exception ex) {
                 processOutput.println("Failed to read process output: " + ex.getMessage());
             }
-        }, "crap-java-process-output");
+        }, "crap-java-process-output-" + label);
         thread.setDaemon(true);
         thread.start();
         return new OutputPipe(thread, capture);
@@ -98,16 +98,21 @@ final class ProcessCommandExecutor implements CommandExecutor {
         private long totalBytes;
 
         private void write(byte[] buffer, int offset, int count) {
-            for (int index = offset; index < offset + count; index++) {
-                writeByte(buffer[index]);
-            }
+            int keptCount = Math.min(count, tail.length);
+            int keptOffset = offset + count - keptCount;
+            copy(buffer, keptOffset, keptCount);
+            length = Math.min(length + keptCount, tail.length);
+            totalBytes += count;
         }
 
-        private void writeByte(byte value) {
-            tail[nextIndex] = value;
-            nextIndex = (nextIndex + 1) % tail.length;
-            length = Math.min(length + 1, tail.length);
-            totalBytes++;
+        private void copy(byte[] buffer, int offset, int count) {
+            int firstCount = Math.min(count, tail.length - nextIndex);
+            System.arraycopy(buffer, offset, tail, nextIndex, firstCount);
+            int secondCount = count - firstCount;
+            if (secondCount > 0) {
+                System.arraycopy(buffer, offset + firstCount, tail, 0, secondCount);
+            }
+            nextIndex = (nextIndex + count) % tail.length;
         }
 
         private String toString(java.nio.charset.Charset charset) {
