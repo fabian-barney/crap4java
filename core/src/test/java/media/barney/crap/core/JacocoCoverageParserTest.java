@@ -12,6 +12,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JacocoCoverageParserTest {
@@ -175,7 +176,7 @@ class JacocoCoverageParserTest {
     }
 
     @Test
-    void parsesInvalidLineNumbersAsZero() throws IOException {
+    void rejectsInvalidLineNumbers() throws IOException {
         Path xml = tempDir.resolve("jacoco-invalid-line.xml");
         Files.writeString(xml, """
                 <report name="demo">
@@ -189,9 +190,33 @@ class JacocoCoverageParserTest {
                 </report>
                 """);
 
-        Map<String, CoverageData> result = JacocoCoverageParser.parse(xml);
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> JacocoCoverageParser.parse(xml));
 
-        assertEquals(90.0, Objects.requireNonNull(result.get("demo.Sample#alpha:0")).coveragePercent(), 0.001);
+        String message = Objects.requireNonNull(Objects.requireNonNull(error.getCause()).getMessage());
+        assertTrue(message.contains("Invalid JaCoCo integer attribute line=\"oops\""));
+    }
+
+    @Test
+    void rejectsInvalidCounterValues() throws IOException {
+        Path xml = tempDir.resolve("jacoco-invalid-counter.xml");
+        Files.writeString(xml, """
+                <report name="demo">
+                  <package name="demo">
+                    <class name="demo/Sample" sourcefilename="Sample.java">
+                      <method name="alpha" desc="()V" line="10">
+                        <counter type="INSTRUCTION" missed="abc" covered="9"/>
+                      </method>
+                    </class>
+                  </package>
+                </report>
+                """);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> JacocoCoverageParser.parse(xml));
+
+        String message = Objects.requireNonNull(Objects.requireNonNull(error.getCause()).getMessage());
+        assertTrue(message.contains("Invalid JaCoCo integer attribute missed=\"abc\""));
     }
 
     @Test
