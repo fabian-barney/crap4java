@@ -43,7 +43,8 @@ final class ChangedFileDetector {
         }
         String output = new String(outputBytes, StandardCharsets.UTF_8);
         if (exit != 0) {
-            throw new IllegalStateException("git status failed: " + output);
+            throw new IllegalStateException(
+                    "Changed-file detection command failed (" + String.join(" ", command) + "): " + output);
         }
 
         List<Path> files = new ArrayList<>();
