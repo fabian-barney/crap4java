@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -14,15 +13,28 @@ class ProjectModuleTest {
     Path tempDir;
 
     @Test
-    void gradleFallbackLauncherMatchesTheCurrentPlatform() {
-        ProjectModule module = new ProjectModule(tempDir, tempDir, BuildTool.GRADLE);
-
-        assertEquals(gradleFallbackLauncher(), module.coverageCommand().get(0));
+    void gradleFallbackLauncherUsesGradleBatOnWindows() {
+        assertGradleFallbackLauncher("Windows 11", "gradle.bat");
     }
 
-    private static String gradleFallbackLauncher() {
-        return System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
-                ? "gradle.bat"
-                : "gradle";
+    @Test
+    void gradleFallbackLauncherUsesGradleOnOtherPlatforms() {
+        assertGradleFallbackLauncher("Linux", "gradle");
+    }
+
+    private void assertGradleFallbackLauncher(String osName, String expectedLauncher) {
+        String originalOsName = System.getProperty("os.name");
+        try {
+            System.setProperty("os.name", osName);
+            ProjectModule module = new ProjectModule(tempDir, tempDir, BuildTool.GRADLE);
+
+            assertEquals(expectedLauncher, module.coverageCommand().get(0));
+        } finally {
+            if (originalOsName == null) {
+                System.clearProperty("os.name");
+            } else {
+                System.setProperty("os.name", originalOsName);
+            }
+        }
     }
 }
