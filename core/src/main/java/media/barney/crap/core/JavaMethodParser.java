@@ -20,6 +20,9 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 
 import javax.tools.JavaCompiler;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
 import java.io.IOException;
@@ -27,6 +30,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 final class JavaMethodParser {
 
@@ -40,15 +44,17 @@ final class JavaMethodParser {
         }
 
         try {
+            DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
             JavacTask task = (JavacTask) compiler.getTask(
                     null,
                     null,
-                    null,
+                    diagnostics,
                     List.of("-proc:none"),
                     null,
                     List.of(new SourceFileObject(className, source))
             );
             Iterable<? extends CompilationUnitTree> units = task.parse();
+            throwIfParseErrors(className, diagnostics.getDiagnostics());
             return collectMethods(task, units);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
@@ -64,6 +70,23 @@ final class JavaMethodParser {
 
     static URI sourceUri(String className) {
         return URI.create("string:///" + sourcePath(className));
+    }
+
+    private static void throwIfParseErrors(String className, List<Diagnostic<? extends JavaFileObject>> diagnostics) {
+        List<String> errors = diagnostics.stream()
+                .filter(diagnostic -> diagnostic.getKind() == Diagnostic.Kind.ERROR)
+                .map(JavaMethodParser::formatDiagnostic)
+                .toList();
+        if (!errors.isEmpty()) {
+            throw new JavaMethodParseException(sourcePath(className), errors);
+        }
+    }
+
+    private static String formatDiagnostic(Diagnostic<? extends JavaFileObject> diagnostic) {
+        long line = diagnostic.getLineNumber();
+        long column = diagnostic.getColumnNumber();
+        String location = line < 0 ? "unknown location" : "line " + line + ", column " + column;
+        return location + ": " + diagnostic.getMessage(Locale.ROOT);
     }
 
     private static List<MethodDescriptor> collectMethods(JavacTask task,
@@ -226,6 +249,12 @@ final class JavaMethodParser {
                 complexity++;
             }
             return super.visitBinary(node, null);
+        }
+    }
+
+    static final class JavaMethodParseException extends IllegalArgumentException {
+        private JavaMethodParseException(String sourcePath, List<String> diagnostics) {
+            super("Unable to parse Java source " + sourcePath + ":\n" + String.join("\n", diagnostics));
         }
     }
 

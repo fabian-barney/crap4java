@@ -5,7 +5,10 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaMethodParserTest {
 
@@ -96,6 +99,28 @@ class JavaMethodParserTest {
         List<MethodDescriptor> methods = JavaMethodParser.parse("demo.Sample", source);
 
         assertEquals(List.of(new MethodDescriptor("demo.Sample", "helper", 4, 6, 1)), methods);
+    }
+
+    @Test
+    void failsOnParseErrorsInsteadOfReturningPartialMethods() {
+        String source = """
+                package demo;
+
+                class Broken {
+                    int partial() {
+                        if (true) {
+                            return 1;
+                    }
+                """;
+
+        JavaMethodParser.JavaMethodParseException thrown = assertThrows(
+                JavaMethodParser.JavaMethodParseException.class,
+                () -> JavaMethodParser.parse("demo.Broken", source)
+        );
+
+        String message = requireNonNull(thrown.getMessage());
+        assertTrue(message.contains("Unable to parse Java source demo/Broken.java:"));
+        assertTrue(message.contains("line "));
     }
 
     @Test
