@@ -3,6 +3,8 @@ package media.barney.crap.core;
 final class Thresholds {
 
     static final double DEFAULT = 8.0;
+    // The recommended default is also the highest threshold before leniency warnings start.
+    private static final double TOO_LENIENT_BOUNDARY = DEFAULT;
 
     private Thresholds() {
     }
@@ -27,7 +29,7 @@ final class Thresholds {
     }
 
     static boolean isTooLenient(double value) {
-        return Double.compare(value, DEFAULT) > 0;
+        return Double.compare(value, TOO_LENIENT_BOUNDARY) > 0;
     }
 
     static String warning(double value) {
@@ -36,7 +38,7 @@ final class Thresholds {
                     + recommendation();
         }
         if (isTooLenient(value)) {
-            return "Warning: CRAP threshold above 8.0 is too lenient even for hard gates. "
+            return "Warning: CRAP threshold above " + TOO_LENIENT_BOUNDARY + " is too lenient even for hard gates. "
                     + recommendation();
         }
         return "";
