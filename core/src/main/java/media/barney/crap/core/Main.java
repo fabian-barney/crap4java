@@ -202,6 +202,10 @@ public final class Main {
                   0   Pass - no methods exceed threshold
                   1   Error - invalid arguments, parse failure, or I/O failure
                   2   Threshold exceeded - at least one method has CRAP > threshold
+
+                Report paths:
+                  Relative --output and --junit-report paths resolve against the project root
+                  Absolute paths and normalized paths outside the project root are honored
                 """;
     }
 
