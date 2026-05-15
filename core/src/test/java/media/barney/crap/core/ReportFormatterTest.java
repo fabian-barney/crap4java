@@ -214,10 +214,10 @@ class ReportFormatterTest {
         assertEquals("1", root.getAttribute("tests"));
         assertEquals("1", root.getAttribute("failures"));
         assertEquals("0", root.getAttribute("skipped"));
-        assertTrue(report.contains("FAILED danger"));
+        assertTrue(report.contains("<testcase classname=\"src/main/java/demo/Sample.java\" name=\"danger:4\""));
         assertTrue(report.contains("<property name=\"threshold\" value=\"8.0\"/>"));
-        assertFalse(report.contains("PASSED safe"));
-        assertFalse(report.contains("SKIPPED unknown"));
+        assertFalse(report.contains("name=\"safe:9\""));
+        assertFalse(report.contains("name=\"unknown:20\""));
     }
 
     @Test
@@ -375,13 +375,21 @@ class ReportFormatterTest {
         assertTrue(report.contains("    <property name=\"threshold\" value=\"8.0\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"instruction\"/>"));
         assertTrue(report.contains("<property name=\"coverageKind\" value=\"N/A\"/>"));
-        assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"FAILED danger:4 CRAP 9.6\""));
-        assertTrue(report.contains("<testcase classname=\"demo.Sample\" name=\"SKIPPED unknown:20 CRAP N/A\""));
+        assertTrue(report.contains("<testcase classname=\"src/main/java/demo/Sample.java\" name=\"danger:4\""));
+        assertTrue(report.contains("<testcase classname=\"src/main/java/demo/Sample.java\" name=\"unknown:20\""));
+        assertTrue(report.contains("file=\"src/main/java/demo/Sample.java\""));
+        assertTrue(report.contains("time=\"0\""));
         assertEquals("CRAP threshold exceeded: 9.6 > 8.0", failure.getAttribute("message"));
         assertEquals("crap-java.threshold", failure.getAttribute("type"));
-        assertEquals("CRAP threshold exceeded: 9.6 > 8.0", failure.getTextContent());
+        assertTrue(failure.getTextContent().contains("CRAP score: 9.6"));
+        assertTrue(failure.getTextContent().contains("Threshold: 8.0"));
+        assertTrue(failure.getTextContent().contains("Coverage: 10.0% (instruction)"));
+        assertTrue(failure.getTextContent().contains("Source: src/main/java/demo/Sample.java:4-6"));
         assertEquals("CRAP score unavailable", skipped.getAttribute("message"));
-        assertEquals("Coverage data unavailable for demo.Sample#unknown", skipped.getTextContent());
+        assertTrue(skipped.getTextContent().contains("CRAP score: N/A"));
+        assertTrue(skipped.getTextContent().contains("Threshold: 8.0"));
+        assertTrue(skipped.getTextContent().contains("Coverage: N/A (N/A)"));
+        assertTrue(skipped.getTextContent().contains("Source: src/main/java/demo/Sample.java:20-22"));
     }
 
     @Test

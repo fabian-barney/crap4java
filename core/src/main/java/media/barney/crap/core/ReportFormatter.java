@@ -219,14 +219,14 @@ final class ReportFormatter {
                                                double threshold,
                                                boolean omitRedundancy) {
         return new JunitTestCase(
-                method.className(),
+                method.sourcePath(),
                 testcaseName(method),
                 method.sourcePath(),
                 method.startLine(),
                 "0",
                 junitProperties(method, omitRedundancy),
                 junitFailure(method, threshold),
-                junitSkipped(method)
+                junitSkipped(method, threshold)
         );
     }
 
@@ -255,16 +255,16 @@ final class ReportFormatter {
         }
         String message = "CRAP threshold exceeded: "
                 + formatDisplayNumber(method.crapScore()) + " > " + formatDisplayNumber(threshold);
-        return new JunitFailure(message, "crap-java.threshold", message);
+        return new JunitFailure(message, "crap-java.threshold", junitDiagnosticText(method, threshold));
     }
 
-    private static @Nullable JunitSkipped junitSkipped(CrapReport.MethodReport method) {
+    private static @Nullable JunitSkipped junitSkipped(CrapReport.MethodReport method, double threshold) {
         if (method.status() != MethodStatus.SKIPPED) {
             return null;
         }
         return new JunitSkipped(
                 "CRAP score unavailable",
-                "Coverage data unavailable for " + method.className() + "#" + method.methodName()
+                junitDiagnosticText(method, threshold)
         );
     }
 
@@ -285,10 +285,18 @@ final class ReportFormatter {
     }
 
     private static String testcaseName(CrapReport.MethodReport method) {
-        return method.status().value().toUpperCase(Locale.ROOT)
-                + " " + method.methodName()
-                + ":" + method.startLine()
-                + " CRAP " + formatDisplayNumber(method.crapScore());
+        return method.methodName() + ":" + method.startLine();
+    }
+
+    private static String junitDiagnosticText(CrapReport.MethodReport method, double threshold) {
+        return String.join("\n",
+                "CRAP score: " + formatDisplayNumber(method.crapScore()),
+                "Threshold: " + formatDisplayNumber(threshold),
+                "Coverage: " + formatCoverage(method.coveragePercent()) + " (" + method.coverageKind() + ")",
+                "Source: " + method.sourcePath() + ":" + method.startLine() + "-" + method.endLine(),
+                "Method: " + method.methodName(),
+                "Complexity: " + method.complexity()
+        );
     }
 
     private static List<CrapReport.MethodReport> sortedMethods(List<CrapReport.MethodReport> entries) {

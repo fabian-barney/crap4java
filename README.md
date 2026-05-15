@@ -161,11 +161,14 @@ lenient even for hard gates. The warning recommends `8.0` for hard gates,
 targeting `6.0` during implementation, and using the `8.0` default when in
 doubt.
 
-The JUnit XML format exposes each analyzed method as a testcase. Methods with
-CRAP scores over the configured threshold fail, methods with unavailable
-coverage are skipped, and the testsuite properties include the global
-threshold. Testcase properties include the score, complexity, coverage percent,
-coverage kind, source path, and line range.
+The JUnit XML format exposes each analyzed method as a testcase and is shaped
+for GitLab's Tests tab. Testcases use the project-relative source path for
+`classname` and `file`, use `method:lineStart` as the testcase `name`, and
+write `time="0"`. Methods with CRAP scores over the configured threshold fail,
+methods with unavailable coverage are skipped, and failure/skipped element text
+includes CRAP score, threshold, coverage kind, source path, and line range.
+Custom properties remain for tools that read them, but GitLab-visible details do
+not rely on properties.
 
 ## Distribution
 
