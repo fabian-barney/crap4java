@@ -20,6 +20,9 @@ public record SourceExclusionOptions(
     }
 
     private static List<String> normalized(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
         return values.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)

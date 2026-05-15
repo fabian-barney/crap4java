@@ -189,7 +189,7 @@ public final class Main {
                   crap-java --failures-only[=true|false]  Only include failing methods in the primary report
                   crap-java --omit-redundancy[=true|false]  Omit redundant method fields from the primary report
                   crap-java --exclude '**/generated/**'    Exclude source paths by glob, repeatable
-                  crap-java --exclude-class '.*MapperImpl' Exclude fully-qualified class names by regex, repeatable
+                  crap-java --exclude-class '.*MapperImpl$' Exclude fully-qualified class names by regex, repeatable
                   crap-java --exclude-annotation Generated Exclude classes by annotation simple or qualified name, repeatable
                   crap-java --use-default-exclusions[=true|false]  Enable generated-code defaults (default: true)
                   crap-java --output report.toon          Write the selected report format to a file

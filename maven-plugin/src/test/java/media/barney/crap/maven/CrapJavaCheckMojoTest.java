@@ -130,9 +130,12 @@ class CrapJavaCheckMojoTest {
         CrapJavaCheckMojo mojo = mojo(runner);
         setField(mojo, "session", session(List.of(project(root, "root")), root));
         setField(mojo, "project", project(root, "root"));
-        setField(mojo, "excludes", List.of("module-a/**, module-b/**", "**/custom/**"));
-        setField(mojo, "excludeClasses", List.of(".*MapperImpl$"));
-        setField(mojo, "excludeAnnotations", List.of("Generated"));
+        setField(mojo, "excludesProperty", "module-a/**, module-b/**");
+        setField(mojo, "excludes", List.of("**/custom/**"));
+        setField(mojo, "excludeClassesProperty", ".*MapperImpl$");
+        setField(mojo, "excludeClasses", List.of("demo.Name{1,3}$"));
+        setField(mojo, "excludeAnnotationsProperty", "Generated");
+        setField(mojo, "excludeAnnotations", List.of("com.acme.Generated"));
         setField(mojo, "useDefaultExclusions", false);
 
         mojo.execute();
@@ -148,8 +151,12 @@ class CrapJavaCheckMojoTest {
                 "**/custom/**",
                 "--exclude-class",
                 ".*MapperImpl$",
+                "--exclude-class",
+                "demo.Name{1,3}$",
                 "--exclude-annotation",
                 "Generated",
+                "--exclude-annotation",
+                "com.acme.Generated",
                 "--use-default-exclusions=false",
                 "--threshold",
                 "8.0",

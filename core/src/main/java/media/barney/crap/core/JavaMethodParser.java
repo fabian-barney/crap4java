@@ -151,9 +151,10 @@ final class JavaMethodParser {
         }
 
         private List<String> currentClassAnnotations() {
-            return enclosingClassAnnotations.stream()
-                    .flatMap(List::stream)
-                    .toList();
+            if (enclosingClassAnnotations.isEmpty()) {
+                return List.of();
+            }
+            return enclosingClassAnnotations.get(enclosingClassAnnotations.size() - 1);
         }
     }
 

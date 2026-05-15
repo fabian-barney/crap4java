@@ -16,6 +16,18 @@ class SourceExclusionMatcherTest {
     Path tempDir;
 
     @Test
+    void sourceExclusionOptionsTreatNullListsAsEmpty() throws ReflectiveOperationException {
+        SourceExclusionOptions options = SourceExclusionOptions.class
+                .getDeclaredConstructor(List.class, List.class, List.class, boolean.class)
+                .newInstance(null, null, null, true);
+
+        assertEquals(List.of(), options.excludes());
+        assertEquals(List.of(), options.excludeClasses());
+        assertEquals(List.of(), options.excludeAnnotations());
+        assertTrue(options.useDefaultExclusions());
+    }
+
+    @Test
     void defaultPathExclusionsMatchGeneratedDirectorySegmentsAndJavaGen() {
         Path generated = tempDir.resolve("src/main/java/demo/generated/Sample.java");
         Path generatedSources = tempDir.resolve("module/src/main/generated-sources/demo/Sample.java");
