@@ -76,9 +76,6 @@ jobs:
             --build-tool maven \
             core/src/main/java cli/src/main/java maven-plugin/src/main/java
 
-      - name: Set up Gradle wrapper permissions for crap-java gate
-        run: chmod +x gradle-plugin/gradlew
-
       - name: Run Gradle-plugin crap-java gate
         run: |
           mkdir -p target/crap-java
