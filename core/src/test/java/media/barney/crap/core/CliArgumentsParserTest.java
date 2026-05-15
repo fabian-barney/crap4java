@@ -142,13 +142,9 @@ class CliArgumentsParserTest {
     void failuresOnlyFlagAcceptsExplicitBooleanAssignments() {
         CliArguments enabled = CliArgumentsParser.parse(new String[]{"--failures-only=true", "--changed"});
         CliArguments disabled = CliArgumentsParser.parse(new String[]{"--failures-only=false", "--changed"});
-        CliArguments enabledUppercase = CliArgumentsParser.parse(new String[]{"--failures-only=TRUE", "--changed"});
-        CliArguments disabledUppercase = CliArgumentsParser.parse(new String[]{"--failures-only=FALSE", "--changed"});
 
         assertTrue(enabled.failuresOnly());
         assertFalse(disabled.failuresOnly());
-        assertTrue(enabledUppercase.failuresOnly());
-        assertFalse(disabledUppercase.failuresOnly());
     }
 
     @Test
@@ -157,6 +153,12 @@ class CliArgumentsParserTest {
                 () -> CliArgumentsParser.parse(new String[]{"--failures-only=yes", "--changed"}));
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--failures-only=", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only=TRUE", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only=False", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--failures-only=FALSE", "--changed"}));
     }
 
     @Test
@@ -177,13 +179,9 @@ class CliArgumentsParserTest {
     void omitRedundancyFlagAcceptsExplicitBooleanAssignments() {
         CliArguments enabled = CliArgumentsParser.parse(new String[]{"--omit-redundancy=true", "--changed"});
         CliArguments disabled = CliArgumentsParser.parse(new String[]{"--omit-redundancy=false", "--changed"});
-        CliArguments enabledUppercase = CliArgumentsParser.parse(new String[]{"--omit-redundancy=TRUE", "--changed"});
-        CliArguments disabledUppercase = CliArgumentsParser.parse(new String[]{"--omit-redundancy=FALSE", "--changed"});
 
         assertTrue(enabled.omitRedundancy());
         assertFalse(disabled.omitRedundancy());
-        assertTrue(enabledUppercase.omitRedundancy());
-        assertFalse(disabledUppercase.omitRedundancy());
     }
 
     @Test
@@ -192,6 +190,12 @@ class CliArgumentsParserTest {
                 () -> CliArgumentsParser.parse(new String[]{"--omit-redundancy=yes", "--changed"}));
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--omit-redundancy=", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--omit-redundancy=TRUE", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--omit-redundancy=False", "--changed"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--omit-redundancy=FALSE", "--changed"}));
     }
 
     @Test

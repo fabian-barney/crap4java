@@ -2,7 +2,6 @@ package media.barney.crap.core;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
 final class CliArgumentsParser {
@@ -177,7 +176,7 @@ final class CliArgumentsParser {
         if (arg.equals(option)) {
             return true;
         }
-        String value = arg.substring(option.length() + 1).toLowerCase(Locale.ROOT);
+        String value = arg.substring(option.length() + 1);
         if ("true".equals(value)) {
             return true;
         }

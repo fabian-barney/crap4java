@@ -152,6 +152,7 @@ coverage input used for each CRAP score (`instruction`, `branch`, or `N/A`).
 `--agent` is a composite shortcut for `--format toon --failures-only
 --omit-redundancy` when those settings are not overridden explicitly.
 `--failures-only` and `--omit-redundancy` affect only the primary report.
+Assigned boolean CLI values must be lowercase `true` or `false`; bare boolean flags mean `true`.
 `--junit-report <path>` always writes the complete unfiltered JUnit XML sidecar,
 and it can be combined with any primary format, including `none`.
 
