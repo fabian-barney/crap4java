@@ -32,12 +32,14 @@ jobs:
           server-username: MAVEN_CENTRAL_TOKEN_USERNAME
           server-password: MAVEN_CENTRAL_TOKEN_PASSWORD
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradle-plugin/gradlew
+
       - name: Verify release version
         shell: bash
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
           pom_version="$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)"
-          chmod +x gradle-plugin/gradlew
           gradle_version="$(cd gradle-plugin && ./gradlew -q properties | awk -F': ' '/^version:/ {print $2; exit}')"
           test "${pom_version}" = "${tag_version}"
           test "${gradle_version}" = "${tag_version}"
