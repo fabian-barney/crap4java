@@ -182,8 +182,8 @@ public final class Main {
     static String usage() {
         return """
                 Usage:
-                  crap-java                                Analyze all Java files under any nested src/main/java tree
-                  crap-java --changed                      Analyze changed Java files under any nested src/main/java tree
+                  crap-java                                Analyze all Java files under any nested source root
+                  crap-java --changed                      Analyze changed Java files under any nested source root
                   crap-java --build-tool gradle           Force Gradle for all resolved modules
                   crap-java --build-tool maven --changed  Force Maven for changed files
                   crap-java --format json                 Write report as toon, json, text, junit, or none (default: toon)
@@ -194,10 +194,11 @@ public final class Main {
                   crap-java --exclude-class '.*MapperImpl$' Exclude fully-qualified class names by regex, repeatable
                   crap-java --exclude-annotation Generated Exclude classes by annotation simple or qualified name, repeatable
                   crap-java --use-default-exclusions[=true|false]  Enable generated-code defaults (default: true)
+                  crap-java --source-root src/java       Override production source roots, repeatable
                   crap-java --output report.toon          Write the selected report format to a file
                   crap-java --junit-report report.xml     Also write a JUnit XML report for CI
                   crap-java --threshold 6                 Override the CRAP threshold (default: 8.0)
-                  crap-java <path...>                     Analyze files, or for directory args analyze nested src/main/java trees under each path
+                  crap-java <path...>                     Analyze files, or for directory args analyze nested source roots under each path
                   crap-java --help                        Print this help message
 
                 Exit codes:

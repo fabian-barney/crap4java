@@ -128,6 +128,48 @@ class CliApplicationTest {
     }
 
     @Test
+    void sourceRootOptionDiscoversCustomSourceTrees() throws Exception {
+        Path sourceRoot = tempDir.resolve("src/java/demo");
+        Files.createDirectories(sourceRoot);
+        Files.writeString(tempDir.resolve("pom.xml"), "<project/>");
+        Path source = sourceRoot.resolve("Sample.java");
+        Files.writeString(source, """
+                package demo;
+
+                class Sample {
+                    int alpha() {
+                        return 1;
+                    }
+                }
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        Path jacocoXml = tempDir.resolve("target/site/jacoco/jacoco.xml");
+        CoverageRunner coverageRunner = new CoverageRunner((command, directory) -> {
+            Files.createDirectories(jacocoXml.getParent());
+            Files.writeString(jacocoXml, """
+                    <report name="demo">
+                      <package name="demo">
+                        <class name="demo/Sample" sourcefilename="Sample.java">
+                          <method name="alpha" desc="()I" line="4">
+                            <counter type="INSTRUCTION" missed="0" covered="1"/>
+                          </method>
+                        </class>
+                      </package>
+                    </report>
+                    """);
+            return 0;
+        });
+
+        int exit = new CliApplication(tempDir, new PrintStream(out), new PrintStream(err), coverageRunner, CoverageMode.GENERATE)
+                .execute(new String[]{"--source-root", "src/java"});
+
+        assertEquals(0, exit);
+        assertTrue(utf8(out).contains("src/java/demo/Sample.java"));
+        assertFalse(utf8(err).contains("Warning: JaCoCo XML not found"));
+    }
+
+    @Test
     void explicitFileUsesOwningModuleForCoverageAndJacocoXml() throws Exception {
         Path moduleRoot = tempDir.resolve("tools/mutate4java");
         Path sourceRoot = moduleRoot.resolve("src/mutate4java");

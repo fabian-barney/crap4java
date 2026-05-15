@@ -59,5 +59,26 @@ class SourceFileFinderTest {
 
         assertEquals(List.of(source), files);
     }
+
+    @Test
+    void supportsConfiguredRelativeSourceRoots() throws Exception {
+        Path customSourceRoot = tempDir.resolve("src/java/demo");
+        Files.createDirectories(customSourceRoot);
+        Path customSource = customSourceRoot.resolve("Sample.java");
+        Files.writeString(customSource, "class Sample {}\n");
+
+        Path defaultSourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(defaultSourceRoot);
+        Files.writeString(defaultSourceRoot.resolve("DefaultSample.java"), "class DefaultSample {}\n");
+
+        Path nestedModuleSourceRoot = tempDir.resolve("module-a/src/java/demo");
+        Files.createDirectories(nestedModuleSourceRoot);
+        Path nestedModuleSource = nestedModuleSourceRoot.resolve("NestedSample.java");
+        Files.writeString(nestedModuleSource, "class NestedSample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir, List.of(Path.of("src/java")));
+
+        assertEquals(List.of(nestedModuleSource, customSource), files);
+    }
 }
 

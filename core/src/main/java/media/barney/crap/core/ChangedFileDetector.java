@@ -84,8 +84,13 @@ final class ChangedFileDetector {
     }
 
     static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot) throws IOException, InterruptedException {
+        return changedJavaFilesUnderSourceRoots(projectRoot, List.of());
+    }
+
+    static List<Path> changedJavaFilesUnderSourceRoots(Path projectRoot, List<Path> sourceRoots)
+            throws IOException, InterruptedException {
         return changedJavaFiles(projectRoot).stream()
-                .filter(ProductionSourceRoots::isUnderProductionSourceRoot)
+                .filter(path -> ProductionSourceRoots.isUnderSourceRoot(path, sourceRoots))
                 .toList();
     }
 

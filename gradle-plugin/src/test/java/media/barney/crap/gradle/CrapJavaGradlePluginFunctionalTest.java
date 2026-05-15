@@ -40,6 +40,72 @@ class CrapJavaGradlePluginFunctionalTest {
     }
 
     @Test
+    void singleModuleProjectUsesConfiguredMainJavaSourceSet() throws Exception {
+        writeFile("settings.gradle.kts", "rootProject.name = \"demo\"");
+        writeFile("build.gradle.kts", """
+                plugins {
+                    java
+                    id("media.barney.crap-java")
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+
+                sourceSets {
+                    main {
+                        java.setSrcDirs(listOf("src/java"))
+                    }
+                    test {
+                        java.setSrcDirs(listOf("test/java"))
+                    }
+                }
+
+                dependencies {
+                    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+                    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+                }
+
+                tasks.test {
+                    useJUnitPlatform()
+                }
+                """);
+        writeFile("src/java/demo/Sample.java", """
+                package demo;
+
+                public class Sample {
+                    public int alpha(boolean value) {
+                        if (value) {
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }
+                """);
+        writeFile("test/java/demo/SampleTest.java", """
+                package demo;
+
+                import org.junit.jupiter.api.Test;
+
+                import static org.junit.jupiter.api.Assertions.assertEquals;
+
+                class SampleTest {
+                    @Test
+                    void alphaReturnsOneForTrue() {
+                        assertEquals(1, new Sample().alpha(true));
+                    }
+                }
+                """);
+
+        BuildResult result = runBuild("crap-java-check");
+
+        Path junitReport = tempDir.resolve("build/reports/crap-java/TEST-crap-java.xml");
+        assertEquals(TaskOutcome.SUCCESS, result.task(":crap-java-check").getOutcome());
+        assertTrue(Files.exists(junitReport));
+        assertTrue(Files.readString(junitReport).contains("methodName\" value=\"alpha\""));
+    }
+
+    @Test
     void rootTaskAggregatesSubprojectCoverageForMultiModuleBuilds() throws Exception {
         writeFile("settings.gradle.kts", """
                 rootProject.name = "workspace"

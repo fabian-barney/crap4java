@@ -51,9 +51,13 @@ your build requires a different JaCoCo version, generate the XML report in your
 own Maven build and run the Maven plugin path below, which consumes that report
 without starting another coverage run.
 
-Source discovery walks `src/main/java` roots without following directory
-symlinks. Symlinked Java files inside a source root can still be selected and
-are reported using the symlink path rather than a canonicalized target path.
+Source discovery walks `src/main/java` roots by default without following
+directory symlinks. The CLI can override those roots with repeatable
+`--source-root <path>` options, the Maven plugin uses configured compile source
+roots when they differ from Maven defaults, and the Gradle plugin reads the
+Java plugin's configured `main` source set. Symlinked Java files inside a source
+root can still be selected and are reported using the symlink path rather than a
+canonicalized target path.
 
 ## Build and Test
 
@@ -124,8 +128,8 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 
 ```text
 --help                Print usage to stdout
-(no args)             Analyze all Java files under any nested src/main/java tree
---changed             Analyze changed Java files under any nested src/main/java tree
+(no args)             Analyze all Java files under any nested source root
+--changed             Analyze changed Java files under any nested source root
 --build-tool <tool>   Force `auto`, `maven`, or `gradle`
 --format <format>     Write `toon`, `json`, `text`, `junit`, or `none` output (`toon` by default)
 --agent               Apply AI-agent defaults: `toon`, failures only, omit redundancy
@@ -135,11 +139,12 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 --exclude-class <regex>  Exclude fully-qualified class names by regex; repeatable
 --exclude-annotation <name>  Exclude classes by annotation name; repeatable
 --use-default-exclusions[=true|false]  Enable built-in generated-code exclusions (`true` by default)
+--source-root <path>  Override production source roots; repeatable
 --output <path>       Write the selected output format to a file instead of stdout
 --junit-report <path> Also write a JUnit XML report for CI test-report UIs
 --threshold <number>  Override the CRAP threshold (`8.0` by default)
 <file ...>            Analyze only these files
-<directory ...>       Analyze all Java files under each directory's nested src/main/java trees
+<directory ...>       Analyze all Java files under each directory's nested source roots
 ```
 
 Value-taking long options may also be written with inline assignment, such as
@@ -165,6 +170,7 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --threshold 6
 java -jar cli/target/crap-java-cli-0.5.0.jar --threshold=6
 java -jar cli/target/crap-java-cli-0.5.0.jar --exclude 'module-a/**' --exclude-class '.*MapperImpl$'
 java -jar cli/target/crap-java-cli-0.5.0.jar --exclude='module-a/**' --exclude-class='.*MapperImpl$'
+java -jar cli/target/crap-java-cli-0.5.0.jar --source-root src/java --source-root src/main/java17
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b

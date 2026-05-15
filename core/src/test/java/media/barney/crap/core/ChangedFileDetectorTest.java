@@ -91,6 +91,30 @@ class ChangedFileDetectorTest {
     }
 
     @Test
+    void filtersChangedFilesToConfiguredSourceTrees() throws Exception {
+        run(tempDir, "git", "init");
+        run(tempDir, "git", "config", "user.email", "test@example.com");
+        run(tempDir, "git", "config", "user.name", "test");
+
+        Path customSource = tempDir.resolve("src/java/demo");
+        Path defaultSource = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(customSource);
+        Files.createDirectories(defaultSource);
+
+        Path tracked = customSource.resolve("Tracked.java");
+        Files.writeString(tracked, "class Tracked {}\n");
+        run(tempDir, "git", "add", ".");
+        run(tempDir, "git", "commit", "-m", "init");
+
+        Files.writeString(tracked, "class Tracked { int x = 1; }\n");
+        Files.writeString(defaultSource.resolve("DefaultChanged.java"), "class DefaultChanged {}\n");
+
+        List<Path> changed = ChangedFileDetector.changedJavaFilesUnderSourceRoots(tempDir, List.of(Path.of("src/java")));
+
+        assertEquals(List.of(tracked), changed);
+    }
+
+    @Test
     void ignoresDeletedJavaFiles() throws Exception {
         run(tempDir, "git", "init");
         run(tempDir, "git", "config", "user.email", "test@example.com");

@@ -8,6 +8,8 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.language.base.plugins.LifecycleBasePlugin;
+import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.testing.jacoco.tasks.JacocoReport;
 
 import java.nio.file.Path;
@@ -80,11 +82,11 @@ public class CrapJavaGradlePlugin implements Plugin<Project> {
         String modulePath = relativeModulePath(analysisProject, candidate);
 
         checkTask.configure(task -> {
+            SourceSetContainer sourceSets = candidate.getExtensions().getByType(SourceSetContainer.class);
+            SourceSet mainSourceSet = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
             task.dependsOn(testTask);
             task.dependsOn(jacocoReportTask);
-            task.getAnalysisSources().from(candidate.fileTree(candidate.getProjectDir(), tree ->
-                    tree.include("src/main/java/**/*.java")
-            ));
+            task.getAnalysisSources().from(mainSourceSet.getAllJava());
             task.getCoverageReports().from(candidate.getLayout().getBuildDirectory().file("reports/jacoco/test/jacocoTestReport.xml"));
             task.getModuleCoverageReports().put(modulePath, coverageReportPath(modulePath));
         });

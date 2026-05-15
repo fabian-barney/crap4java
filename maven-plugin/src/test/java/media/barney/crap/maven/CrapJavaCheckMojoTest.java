@@ -72,6 +72,34 @@ class CrapJavaCheckMojoTest {
     }
 
     @Test
+    void passesConfiguredCompileSourceRootsToCli() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path sourceRoot = root.resolve("src/java");
+        Files.createDirectories(sourceRoot);
+        writeCoverageReport(root);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject project = project(root, "root");
+        project.addCompileSourceRoot(sourceRoot.toString());
+        setField(mojo, "session", session(List.of(project), root));
+        setField(mojo, "project", project);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--source-root",
+                sourceRoot.toString(),
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
+    }
+
+    @Test
     void routesRunnerOutputThroughMavenLog() throws Exception {
         Path root = tempDir.resolve("root");
         writeCoverageReport(root);
@@ -312,6 +340,29 @@ class CrapJavaCheckMojoTest {
         assertTrue(runner.invoked);
         assertTrue(runner.useExistingCoverage);
         assertEquals(root, runner.projectRoot);
+    }
+
+    @Test
+    void checksCoverageReportsForConfiguredCompileSourceRoots() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path sourceRoot = root.resolve("src/java");
+        Files.createDirectories(sourceRoot);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject project = project(root, "root");
+        project.addCompileSourceRoot(sourceRoot.toString());
+        setField(mojo, "session", session(List.of(project), root));
+        setField(mojo, "project", project);
+
+        MojoFailureException ex = assertThrows(MojoFailureException.class, mojo::execute);
+
+        assertEquals(
+                "Missing JaCoCo XML reports. Configure jacoco-maven-plugin to generate target/site/jacoco/jacoco.xml before crap-java:check: "
+                        + root.resolve("target/site/jacoco/jacoco.xml"),
+                ex.getMessage()
+        );
+        assertFalse(runner.invoked);
     }
 
     @Test

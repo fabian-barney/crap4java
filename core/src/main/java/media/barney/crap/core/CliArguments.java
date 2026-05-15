@@ -13,6 +13,7 @@ record CliArguments(
         boolean omitRedundancy,
         @Nullable String outputPath,
         @Nullable String junitReportPath,
+        List<String> sourceRoots,
         List<String> fileArgs,
         SourceExclusionOptions exclusionOptions
 ) {
@@ -36,6 +37,7 @@ record CliArguments(
                 omitRedundancy,
                 outputPath,
                 junitReportPath,
+                List.of(),
                 fileArgs,
                 SourceExclusionOptions.defaults()
         );

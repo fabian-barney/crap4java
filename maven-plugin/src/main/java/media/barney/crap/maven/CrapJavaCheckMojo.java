@@ -137,6 +137,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         addRepeated(args, "--exclude", excludesProperty, excludes);
         addRepeated(args, "--exclude-class", excludeClassesProperty, excludeClasses);
         addRepeated(args, "--exclude-annotation", excludeAnnotationsProperty, excludeAnnotations);
+        addRepeated(args, "--source-root", null, sourceRootArguments());
         if (!useDefaultExclusions) {
             args.add("--use-default-exclusions=false");
         }
@@ -306,8 +307,8 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     private List<Path> missingCoverageReports() {
         List<Path> missingReports = new ArrayList<>();
         for (MavenProject reactorProject : reactorProjects()) {
-            Path basedir = reactorProject.getBasedir().toPath();
-            if (Files.exists(basedir.resolve("src/main/java"))
+            Path basedir = reactorProject.getBasedir().toPath().normalize();
+            if (compileSourceRoots(reactorProject).stream().anyMatch(Files::exists)
                     && !Files.exists(basedir.resolve("target/site/jacoco/jacoco.xml"))) {
                 missingReports.add(basedir.resolve("target/site/jacoco/jacoco.xml"));
             }
@@ -318,6 +319,39 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     private List<MavenProject> reactorProjects() {
         List<MavenProject> projects = session().getProjects();
         return projects == null || projects.isEmpty() ? List.of(project()) : projects;
+    }
+
+    private List<String> sourceRootArguments() {
+        if (!hasCustomCompileSourceRoot()) {
+            return List.of();
+        }
+        return reactorProjects().stream()
+                .flatMap(project -> compileSourceRoots(project).stream())
+                .map(Path::toString)
+                .distinct()
+                .toList();
+    }
+
+    private boolean hasCustomCompileSourceRoot() {
+        return reactorProjects().stream()
+                .anyMatch(project -> compileSourceRoots(project).stream()
+                        .anyMatch(sourceRoot -> !sourceRoot.equals(defaultSourceRoot(project))));
+    }
+
+    private static List<Path> compileSourceRoots(MavenProject project) {
+        List<String> roots = project.getCompileSourceRoots();
+        if (roots == null || roots.isEmpty()) {
+            return List.of(defaultSourceRoot(project));
+        }
+        return roots.stream()
+                .filter(Objects::nonNull)
+                .map(Path::of)
+                .map(path -> path.isAbsolute() ? path.normalize() : project.getBasedir().toPath().resolve(path).normalize())
+                .toList();
+    }
+
+    private static Path defaultSourceRoot(MavenProject project) {
+        return project.getBasedir().toPath().resolve("src/main/java").normalize();
     }
 
     private Path executionRoot() {
