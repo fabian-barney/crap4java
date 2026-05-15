@@ -37,7 +37,7 @@ final class JavaMethodParser {
     private JavaMethodParser() {
     }
 
-    static List<MethodDescriptor> parse(String className, String source) {
+    static List<MethodDescriptor> parse(String sourceName, String source) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("No system Java compiler is available");
@@ -51,34 +51,40 @@ final class JavaMethodParser {
                     diagnostics,
                     List.of("-proc:none"),
                     null,
-                    List.of(new SourceFileObject(className, source))
+                    List.of(new SourceFileObject(sourceName, source))
             );
             Iterable<? extends CompilationUnitTree> units = task.parse();
-            throwIfParseErrors(className, diagnostics.getDiagnostics());
+            throwIfParseErrors(sourceName, diagnostics.getDiagnostics());
             return collectMethods(task, units);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
     }
 
-    static String sourcePath(String className) {
-        String normalized = className.endsWith(".java")
-                ? className.substring(0, className.length() - ".java".length())
-                : className;
+    static String sourcePath(String sourceName) {
+        String normalized = sourceName.endsWith(".java")
+                ? sourceName.substring(0, sourceName.length() - ".java".length())
+                : sourceName;
         return normalized.replace('.', '/') + ".java";
     }
 
-    static URI sourceUri(String className) {
-        return URI.create("string:///" + sourcePath(className));
+    static URI sourceUri(String sourceName) {
+        return URI.create("string:///" + sourcePath(sourceName));
     }
 
-    private static void throwIfParseErrors(String className, List<Diagnostic<? extends JavaFileObject>> diagnostics) {
+    static boolean hasKnownSourceRange(long start, long endExclusive) {
+        return start != Diagnostic.NOPOS
+                && endExclusive != Diagnostic.NOPOS
+                && endExclusive > start;
+    }
+
+    private static void throwIfParseErrors(String sourceName, List<Diagnostic<? extends JavaFileObject>> diagnostics) {
         List<String> errors = diagnostics.stream()
                 .filter(diagnostic -> diagnostic.getKind() == Diagnostic.Kind.ERROR)
                 .map(JavaMethodParser::formatDiagnostic)
                 .toList();
         if (!errors.isEmpty()) {
-            throw new JavaMethodParseException(sourcePath(className), errors);
+            throw new JavaMethodParseException(sourcePath(sourceName), errors);
         }
     }
 
@@ -99,13 +105,24 @@ final class JavaMethodParser {
 
     private static List<MethodDescriptor> collectMethods(JavacTask task,
                                                          Iterable<? extends CompilationUnitTree> units) {
-        Trees trees = Trees.instance(task);
         List<MethodDescriptor> methods = new ArrayList<>();
+        Trees trees = Trees.instance(task);
         for (CompilationUnitTree unit : units) {
-            SourcePositions positions = trees.getSourcePositions();
-            new MethodScanner(unit, positions, methods).scan(unit, null);
+            collectMethods(unit, trees.getSourcePositions(), methods);
         }
         return methods;
+    }
+
+    static List<MethodDescriptor> collectMethods(CompilationUnitTree unit, SourcePositions positions) {
+        List<MethodDescriptor> methods = new ArrayList<>();
+        collectMethods(unit, positions, methods);
+        return methods;
+    }
+
+    private static void collectMethods(CompilationUnitTree unit,
+                                       SourcePositions positions,
+                                       List<MethodDescriptor> methods) {
+        new MethodScanner(unit, positions, methods).scan(unit, null);
     }
 
     private static final class MethodScanner extends TreePathScanner<Void, Void> {
@@ -143,14 +160,17 @@ final class JavaMethodParser {
 
         @Override
         public Void visitMethod(MethodTree node, Void unused) {
-            if (node.getBody() == null || node.getReturnType() == null) {
+            if (node.getBody() == null) {
                 return null;
             }
 
             long start = positions.getStartPosition(unit, node);
             long bodyEndExclusive = positions.getEndPosition(unit, node.getBody());
+            if (!hasKnownSourceRange(start, bodyEndExclusive)) {
+                return null;
+            }
             int startLine = lineNumber(start);
-            int endLine = lineNumber(Math.decrementExact((int) bodyEndExclusive));
+            int endLine = lineNumber(Math.decrementExact(bodyEndExclusive));
             int complexity = ComplexityCounter.count(node);
             methods.add(new MethodDescriptor(
                     currentClassName(),
@@ -269,8 +289,8 @@ final class JavaMethodParser {
     private static final class SourceFileObject extends SimpleJavaFileObject {
         private final String source;
 
-        private SourceFileObject(String className, String source) {
-            super(uriFor(className), Kind.SOURCE);
+        private SourceFileObject(String sourceName, String source) {
+            super(uriFor(sourceName), Kind.SOURCE);
             this.source = source;
         }
 
@@ -279,8 +299,8 @@ final class JavaMethodParser {
             return source;
         }
 
-        private static URI uriFor(String className) {
-            return sourceUri(className);
+        private static URI uriFor(String sourceName) {
+            return sourceUri(sourceName);
         }
     }
 }

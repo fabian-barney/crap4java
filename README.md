@@ -21,6 +21,15 @@ The toolkit resolves Maven and Gradle modules natively, including standard multi
   `INSTRUCTION` and `BRANCH` counters. JaCoCo omits `BRANCH` counters for
   branchless methods, so those methods use instruction coverage.
 
+## Cyclomatic Complexity Model
+
+Java method complexity starts at `1` and increments for each AST decision node:
+loops, `if`, conditional expressions, `catch`, short-circuit boolean operators,
+and switch case clauses. Switch handling follows the javac AST: each
+`case`/`default` clause contributes `1`, regardless of how many constants appear
+in that clause. For example, `case A, B, C ->` contributes `1`, not `3`, and
+`default` also contributes `1`.
+
 ## Coverage Pipeline
 
 For each resolved module today:
@@ -34,6 +43,17 @@ For each resolved module today:
    - Maven: `target/site/jacoco/jacoco.xml`
    - Gradle: `build/reports/jacoco/test/jacocoTestReport.xml`
 5. Analyze the selected Java files for that module
+
+For Maven CLI coverage generation, crap-java invokes
+`org.jacoco:jacoco-maven-plugin:0.8.13` explicitly. It does not inspect or
+reuse a `jacoco-maven-plugin` version pinned in the analyzed project's POM. If
+your build requires a different JaCoCo version, generate the XML report in your
+own Maven build and run the Maven plugin path below, which consumes that report
+without starting another coverage run.
+
+Source discovery walks `src/main/java` roots without following directory
+symlinks. Symlinked Java files inside a source root can still be selected and
+are reported using the symlink path rather than a canonicalized target path.
 
 ## Build and Test
 
@@ -122,6 +142,9 @@ java -jar cli/target/crap-java-cli-0.5.0.jar
 <directory ...>       Analyze all Java files under each directory's nested src/main/java trees
 ```
 
+Value-taking long options may also be written with inline assignment, such as
+`--build-tool=maven`, `--format=json`, or `--exclude='module-a/**'`.
+
 Examples:
 
 ```bash
@@ -129,6 +152,7 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --help
 java -jar cli/target/crap-java-cli-0.5.0.jar
 java -jar cli/target/crap-java-cli-0.5.0.jar --changed
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool gradle
+java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool=maven
 java -jar cli/target/crap-java-cli-0.5.0.jar --format json
 java -jar cli/target/crap-java-cli-0.5.0.jar --format none --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --format json --output target/crap-java/report.json
@@ -138,7 +162,9 @@ java -jar cli/target/crap-java-cli-0.5.0.jar --agent
 java -jar cli/target/crap-java-cli-0.5.0.jar --agent --format junit --output target/crap-java/TEST-crap-java-primary.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --junit-report target/crap-java/TEST-crap-java.xml
 java -jar cli/target/crap-java-cli-0.5.0.jar --threshold 6
+java -jar cli/target/crap-java-cli-0.5.0.jar --threshold=6
 java -jar cli/target/crap-java-cli-0.5.0.jar --exclude 'module-a/**' --exclude-class '.*MapperImpl$'
+java -jar cli/target/crap-java-cli-0.5.0.jar --exclude='module-a/**' --exclude-class='.*MapperImpl$'
 java -jar cli/target/crap-java-cli-0.5.0.jar --build-tool maven module-a/src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar src/main/java/demo/Sample.java
 java -jar cli/target/crap-java-cli-0.5.0.jar module-a module-b
@@ -190,12 +216,13 @@ doubt.
 
 The JUnit XML format exposes each analyzed method as a testcase and is shaped
 for GitLab's Tests tab. Testcases use the project-relative source path for
-`classname` and `file`, use `method:lineStart` as the testcase `name`, and
-write `time="0"`. Methods with CRAP scores over the configured threshold fail,
-methods with unavailable coverage are skipped, and failure/skipped element text
-includes CRAP score, threshold, coverage kind, source path, and line range.
-Custom properties remain for tools that read them, but GitLab-visible details do
-not rely on properties.
+`classname` and `file`, use `method:lineStart` as the testcase `name`, write the
+measured analysis duration on the testsuite, and divide that duration across
+testcases. Methods with CRAP scores over the configured threshold fail, methods
+with unavailable coverage are skipped, and failure/skipped element text includes
+CRAP score, threshold, coverage kind, source path, and line range. Custom
+properties remain for tools that read them, but GitLab-visible details do not
+rely on properties.
 
 ## Distribution
 
@@ -319,7 +346,9 @@ Add the plugin:
 </build>
 ```
 
-The Maven plugin consumes the JaCoCo XML files produced by your build. It does not spawn a nested Maven run to generate coverage.
+The Maven plugin consumes the JaCoCo XML files produced by your build. It does
+not spawn a nested Maven run to generate coverage, so your project's configured
+JaCoCo version remains in control.
 
 No custom `<pluginRepositories>` or consumer-side authentication are required for published releases.
 

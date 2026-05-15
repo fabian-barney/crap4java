@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.LongSupplier;
 import org.jspecify.annotations.Nullable;
 
 final class CliApplication {
@@ -20,17 +21,28 @@ final class CliApplication {
     private final PrintStream err;
     private final CoverageRunner coverageRunner;
     private final CoverageMode coverageMode;
+    private final LongSupplier nanoTime;
 
     CliApplication(Path projectRoot,
                    PrintStream out,
                    PrintStream err,
                    CoverageRunner coverageRunner,
                    CoverageMode coverageMode) {
+        this(projectRoot, out, err, coverageRunner, coverageMode, System::nanoTime);
+    }
+
+    CliApplication(Path projectRoot,
+                   PrintStream out,
+                   PrintStream err,
+                   CoverageRunner coverageRunner,
+                   CoverageMode coverageMode,
+                   LongSupplier nanoTime) {
         this.projectRoot = projectRoot;
         this.out = out;
         this.err = err;
         this.coverageRunner = coverageRunner;
         this.coverageMode = coverageMode;
+        this.nanoTime = nanoTime;
     }
 
     int execute(String[] args) throws Exception {
@@ -38,6 +50,7 @@ final class CliApplication {
         if (parse.exitCode >= 0) {
             return parse.exitCode;
         }
+        long startedAt = nanoTime.getAsLong();
         CliArguments parsed = parse.arguments();
         try {
             Main.writeThresholdWarning(err, parsed.threshold());
@@ -49,7 +62,8 @@ final class CliApplication {
                     audit
             );
             if (filesToAnalyze.isEmpty()) {
-                CrapReport report = CrapReport.from(List.of(), parsed.threshold(), audit.build());
+                CrapReport report = CrapReport.from(List.of(), parsed.threshold(), audit.build())
+                        .withElapsedNanos(nanoTime.getAsLong() - startedAt);
                 ReportPublisher.publish(report, reportOptions(parsed), out);
                 return 0;
             }
@@ -60,9 +74,8 @@ final class CliApplication {
                     exclusions,
                     audit
             );
-            metrics.sort(Comparator.comparing(MethodMetrics::crapScore,
-                    Comparator.nullsLast(Comparator.reverseOrder())));
-            CrapReport report = CrapReport.from(metrics, parsed.threshold(), audit.build());
+            CrapReport report = CrapReport.from(metrics, parsed.threshold(), audit.build())
+                    .withElapsedNanos(nanoTime.getAsLong() - startedAt);
             ReportPublisher.publish(report, reportOptions(parsed), out);
 
             double max = Main.maxCrap(metrics);

@@ -10,13 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 final class CrapAnalyzer {
-
-    private static final Pattern PACKAGE_PATTERN = Pattern.compile("(?m)^\\s*package\\s+([a-zA-Z_][\\w.]*)\\s*;");
 
     private CrapAnalyzer() {
     }
@@ -70,8 +66,8 @@ final class CrapAnalyzer {
         }
         Path normalizedFile = file.toAbsolutePath().normalize();
         String source = Files.readString(file);
-        String primaryClassName = classNameFromSource(file, source);
-        for (MethodDescriptor method : JavaMethodParser.parse(primaryClassName, source)) {
+        String sourceName = file.getFileName().toString();
+        for (MethodDescriptor method : JavaMethodParser.parse(sourceName, source)) {
             addMetricIfIncluded(method, projectRoot, normalizedFile, coverageMap, exclusions, audit, excludedClasses, metrics);
         }
     }
@@ -125,15 +121,6 @@ final class CrapAnalyzer {
     private static String sourcePath(Path projectRoot, Path file) {
         Path path = file.startsWith(projectRoot) ? projectRoot.relativize(file) : file;
         return path.normalize().toString().replace('\\', '/');
-    }
-
-    static String classNameFromSource(Path file, String source) {
-        String simpleName = file.getFileName().toString().replaceFirst("\\.java$", "");
-        Matcher matcher = PACKAGE_PATTERN.matcher(source);
-        if (!matcher.find()) {
-            return simpleName;
-        }
-        return matcher.group(1) + "." + simpleName;
     }
 
     static @Nullable EffectiveCoverage lookupCoverage(Map<String, CoverageData> coverageMap,

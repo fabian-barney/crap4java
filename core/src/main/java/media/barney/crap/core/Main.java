@@ -150,6 +150,7 @@ public final class Main {
                                           ReportOptions reportOptions,
                                           double threshold,
                                           SourceExclusionOptions exclusionOptions) throws Exception {
+        long startedAt = System.nanoTime();
         Thresholds.validate(threshold);
         writeThresholdWarning(err, threshold);
         List<MethodMetrics> metrics = new ArrayList<>();
@@ -166,7 +167,8 @@ public final class Main {
             metrics.addAll(CrapAnalyzer.analyze(reportRoot, includedSources, module.coverageReport(), exclusions, audit));
         }
 
-        CrapReport report = CrapReport.from(metrics, threshold, audit.build());
+        CrapReport report = CrapReport.from(metrics, threshold, audit.build())
+                .withElapsedNanos(System.nanoTime() - startedAt);
         ReportPublisher.publish(report, reportOptions, out);
 
         double max = Main.maxCrap(metrics);
@@ -206,6 +208,8 @@ public final class Main {
                 Report paths:
                   Relative --output and --junit-report paths resolve against the project root
                   Absolute paths and normalized paths outside the project root are honored
+
+                Long options that take a value may also be written as --option=value.
                 """;
     }
 
