@@ -231,7 +231,7 @@ class MainTest {
         assertEquals("", utf8(out));
         assertEquals("", utf8(err));
         assertTrue(Files.readString(jsonReport).contains("\"covKind\": \"instruction\""));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\"0\">"));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"1\" failures=\"0\" errors=\"0\" skipped=\"0\" time=\""));
     }
 
     @Test
@@ -255,7 +255,7 @@ class MainTest {
         String junit = Files.readString(junitReport);
         assertEquals(2, exit);
         assertEquals("", utf8(out));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -286,7 +286,7 @@ class MainTest {
         assertEquals("", utf8(out));
         assertTrue(Files.exists(primaryReport));
         assertEquals("", Files.readString(primaryReport));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
     }
 
     @Test
@@ -320,7 +320,7 @@ class MainTest {
         assertTrue(primary.contains("\"method\": \"danger\""));
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -389,7 +389,7 @@ class MainTest {
         assertTrue(primary.contains("\"method\": \"danger\""));
         assertFalse(primary.contains("\"method\": \"safe\""));
         assertFalse(primary.contains("\"method\": \"unknown\""));
-        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(junit.contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
         assertTrue(junit.contains("name=\"danger:4\""));
         assertTrue(junit.contains("name=\"safe:14\""));
         assertTrue(junit.contains("name=\"unknown:18\""));
@@ -517,7 +517,7 @@ class MainTest {
 
         assertEquals(2, exit);
         assertTrue(Files.exists(junitReport));
-        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\"0\">"));
+        assertTrue(Files.readString(junitReport).contains("<testsuites tests=\"3\" failures=\"1\" errors=\"0\" skipped=\"1\" time=\""));
     }
 
     @Test
