@@ -5,14 +5,19 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.jspecify.annotations.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -105,8 +110,9 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     }
 
     private void runCheck(Path executionRoot) throws MojoExecutionException, MojoFailureException {
-        try {
-            int exit = runner.run(true, reportArgs(executionRoot), executionRoot, System.out, System.err);
+        try (PrintStream out = logPrintStream(getLog(), false);
+             PrintStream err = logPrintStream(getLog(), true)) {
+            int exit = runner.run(true, reportArgs(executionRoot), executionRoot, out, err);
             handleExitCode(exit);
         } catch (MojoFailureException | MojoExecutionException ex) {
             throw ex;
@@ -234,6 +240,65 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         }
         if (exit != 0) {
             throw new MojoExecutionException("crap-java check failed with exit " + exit);
+        }
+    }
+
+    private static PrintStream logPrintStream(Log log, boolean errorByDefault) {
+        return new PrintStream(new LogOutputStream(log, errorByDefault), true, StandardCharsets.UTF_8);
+    }
+
+    private static final class LogOutputStream extends OutputStream {
+        private final Log log;
+        private final boolean errorByDefault;
+        private final ByteArrayOutputStream line = new ByteArrayOutputStream();
+
+        private LogOutputStream(Log log, boolean errorByDefault) {
+            this.log = log;
+            this.errorByDefault = errorByDefault;
+        }
+
+        @Override
+        public void write(int value) {
+            if (value == '\n') {
+                logLine();
+                return;
+            }
+            if (value != '\r') {
+                line.write(value);
+            }
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) {
+            for (int index = offset; index < offset + length; index++) {
+                write(buffer[index]);
+            }
+        }
+
+        @Override
+        public void flush() {
+            logLine();
+        }
+
+        @Override
+        public void close() throws IOException {
+            flush();
+            super.close();
+        }
+
+        private void logLine() {
+            if (line.size() == 0) {
+                return;
+            }
+            String message = line.toString(StandardCharsets.UTF_8);
+            line.reset();
+            if (message.startsWith("Warning: ")) {
+                log.warn(message);
+            } else if (message.startsWith("Error: ") || errorByDefault) {
+                log.error(message);
+            } else {
+                log.info(message);
+            }
         }
     }
 
