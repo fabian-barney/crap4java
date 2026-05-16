@@ -51,7 +51,7 @@ final class SourceFileFinder {
     private static List<Path> productionSourceRoots(Path projectRoot, List<Path> configuredSourceRoots)
             throws IOException {
         List<Path> sourceRoots = new ArrayList<>();
-        sourceRoots.addAll(existingAbsoluteSourceRoots(configuredSourceRoots));
+        sourceRoots.addAll(existingAbsoluteSourceRootsUnder(projectRoot, configuredSourceRoots));
         Files.walkFileTree(projectRoot, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
@@ -76,12 +76,20 @@ final class SourceFileFinder {
                 .toList();
     }
 
-    private static List<Path> existingAbsoluteSourceRoots(List<Path> configuredSourceRoots) {
+    private static List<Path> existingAbsoluteSourceRootsUnder(Path projectRoot, List<Path> configuredSourceRoots) {
+        Path normalizedProjectRoot = projectRoot.toAbsolutePath().normalize();
         return configuredSourceRoots.stream()
                 .map(Path::normalize)
                 .filter(Path::isAbsolute)
+                .peek(sourceRoot -> validateSourceRootUnderProjectRoot(normalizedProjectRoot, sourceRoot))
                 .filter(Files::isDirectory)
                 .toList();
+    }
+
+    private static void validateSourceRootUnderProjectRoot(Path projectRoot, Path sourceRoot) {
+        if (!sourceRoot.startsWith(projectRoot)) {
+            throw new IllegalArgumentException("Absolute source root must be under the analyzed path: " + sourceRoot);
+        }
     }
 }
 

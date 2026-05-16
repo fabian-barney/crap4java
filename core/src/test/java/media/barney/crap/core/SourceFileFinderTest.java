@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SourceFileFinderTest {
 
@@ -82,21 +83,25 @@ class SourceFileFinderTest {
     }
 
     @Test
-    void supportsConfiguredAbsoluteSourceRootsOutsideSearchedRoot() throws Exception {
+    void rejectsConfiguredAbsoluteSourceRootsOutsideSearchedRoot() throws Exception {
         Path projectRoot = tempDir.resolve("project");
         Files.createDirectories(projectRoot);
 
         Path externalSourceRoot = tempDir.resolve("external-src/demo");
         Files.createDirectories(externalSourceRoot);
-        Path externalSource = externalSourceRoot.resolve("ExternalSample.java");
-        Files.writeString(externalSource, "class ExternalSample {}\n");
 
-        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(
-                projectRoot,
-                List.of(tempDir.resolve("external-src"))
+        IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> SourceFileFinder.findAllJavaFilesUnderSourceRoots(
+                        projectRoot,
+                        List.of(tempDir.resolve("external-src"))
+                )
         );
 
-        assertEquals(List.of(externalSource), files);
+        assertEquals(
+                "Absolute source root must be under the analyzed path: " + tempDir.resolve("external-src"),
+                thrown.getMessage()
+        );
     }
 }
 
