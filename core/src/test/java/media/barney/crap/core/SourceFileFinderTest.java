@@ -80,5 +80,23 @@ class SourceFileFinderTest {
 
         assertEquals(List.of(nestedModuleSource, customSource), files);
     }
+
+    @Test
+    void supportsConfiguredAbsoluteSourceRootsOutsideSearchedRoot() throws Exception {
+        Path projectRoot = tempDir.resolve("project");
+        Files.createDirectories(projectRoot);
+
+        Path externalSourceRoot = tempDir.resolve("external-src/demo");
+        Files.createDirectories(externalSourceRoot);
+        Path externalSource = externalSourceRoot.resolve("ExternalSample.java");
+        Files.writeString(externalSource, "class ExternalSample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(
+                projectRoot,
+                List.of(tempDir.resolve("external-src"))
+        );
+
+        assertEquals(List.of(externalSource), files);
+    }
 }
 

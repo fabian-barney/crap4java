@@ -51,7 +51,7 @@ final class SourceFileFinder {
     private static List<Path> productionSourceRoots(Path projectRoot, List<Path> configuredSourceRoots)
             throws IOException {
         List<Path> sourceRoots = new ArrayList<>();
-        sourceRoots.addAll(existingAbsoluteSourceRootsUnder(projectRoot, configuredSourceRoots));
+        sourceRoots.addAll(existingAbsoluteSourceRoots(configuredSourceRoots));
         Files.walkFileTree(projectRoot, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
@@ -76,12 +76,10 @@ final class SourceFileFinder {
                 .toList();
     }
 
-    private static List<Path> existingAbsoluteSourceRootsUnder(Path projectRoot, List<Path> configuredSourceRoots) {
-        Path normalizedProjectRoot = projectRoot.toAbsolutePath().normalize();
+    private static List<Path> existingAbsoluteSourceRoots(List<Path> configuredSourceRoots) {
         return configuredSourceRoots.stream()
                 .map(Path::normalize)
                 .filter(Path::isAbsolute)
-                .filter(sourceRoot -> sourceRoot.startsWith(normalizedProjectRoot))
                 .filter(Files::isDirectory)
                 .toList();
     }
