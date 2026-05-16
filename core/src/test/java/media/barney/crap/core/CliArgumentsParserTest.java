@@ -98,6 +98,18 @@ class CliArgumentsParserTest {
     }
 
     @Test
+    void sourceRootsAreParsed() {
+        CliArguments args = CliArgumentsParser.parse(new String[]{
+                "--source-root=src/java",
+                "--source-root",
+                "module-a/src/main/java17",
+                "--changed"
+        });
+
+        assertEquals(List.of("src/java", "module-a/src/main/java17"), args.sourceRoots());
+    }
+
+    @Test
     void sourceExclusionOptionsAcceptInlineAssignments() {
         CliArguments args = CliArgumentsParser.parse(new String[]{
                 "--exclude=module-a/**",
@@ -352,6 +364,8 @@ class CliArgumentsParserTest {
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--exclude-annotation"}));
         assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--source-root"}));
+        assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--use-default-exclusions=maybe"}));
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--exclude="}));
@@ -359,6 +373,8 @@ class CliArgumentsParserTest {
                 () -> CliArgumentsParser.parse(new String[]{"--exclude-class="}));
         assertThrows(IllegalArgumentException.class,
                 () -> CliArgumentsParser.parse(new String[]{"--exclude-annotation="}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliArgumentsParser.parse(new String[]{"--source-root="}));
     }
 
     @Test

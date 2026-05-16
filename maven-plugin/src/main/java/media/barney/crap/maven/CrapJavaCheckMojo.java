@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -137,6 +138,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         addRepeated(args, "--exclude", excludesProperty, excludes);
         addRepeated(args, "--exclude-class", excludeClassesProperty, excludeClasses);
         addRepeated(args, "--exclude-annotation", excludeAnnotationsProperty, excludeAnnotations);
+        addRepeated(args, "--source-root", null, sourceRootArguments(executionRoot));
         if (!useDefaultExclusions) {
             args.add("--use-default-exclusions=false");
         }
@@ -305,9 +307,10 @@ public class CrapJavaCheckMojo extends AbstractMojo {
 
     private List<Path> missingCoverageReports() {
         List<Path> missingReports = new ArrayList<>();
+        Path executionRoot = executionRoot();
         for (MavenProject reactorProject : reactorProjects()) {
-            Path basedir = reactorProject.getBasedir().toPath();
-            if (Files.exists(basedir.resolve("src/main/java"))
+            Path basedir = reactorProject.getBasedir().toPath().normalize();
+            if (!analyzableCompileSourceRoots(reactorProject, executionRoot).isEmpty()
                     && !Files.exists(basedir.resolve("target/site/jacoco/jacoco.xml"))) {
                 missingReports.add(basedir.resolve("target/site/jacoco/jacoco.xml"));
             }
@@ -318,6 +321,71 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     private List<MavenProject> reactorProjects() {
         List<MavenProject> projects = session().getProjects();
         return projects == null || projects.isEmpty() ? List.of(project()) : projects;
+    }
+
+    private List<String> sourceRootArguments(Path executionRoot) {
+        if (!hasCustomCompileSourceRoot(executionRoot)) {
+            return List.of();
+        }
+        return reactorProjects().stream()
+                .flatMap(project -> analyzableCompileSourceRoots(project, executionRoot).stream())
+                .map(Path::toString)
+                .distinct()
+                .toList();
+    }
+
+    private boolean hasCustomCompileSourceRoot(Path executionRoot) {
+        return reactorProjects().stream()
+                .anyMatch(project -> analyzableCompileSourceRoots(project, executionRoot).stream()
+                        .anyMatch(sourceRoot -> !sourceRoot.equals(defaultSourceRoot(project))));
+    }
+
+    private static List<Path> analyzableCompileSourceRoots(MavenProject project, Path executionRoot) {
+        return compileSourceRoots(project).stream()
+                .filter(Files::isDirectory)
+                .filter(sourceRoot -> isUnder(sourceRoot, executionRoot))
+                .filter(sourceRoot -> !isGeneratedOrBuildOutputRoot(project, sourceRoot))
+                .toList();
+    }
+
+    private static List<Path> compileSourceRoots(MavenProject project) {
+        List<String> roots = project.getCompileSourceRoots();
+        if (roots == null || roots.isEmpty()) {
+            return List.of(defaultSourceRoot(project));
+        }
+        return roots.stream()
+                .filter(Objects::nonNull)
+                .map(Path::of)
+                .map(path -> path.isAbsolute() ? path.normalize() : project.getBasedir().toPath().resolve(path).normalize())
+                .toList();
+    }
+
+    private static Path defaultSourceRoot(MavenProject project) {
+        return project.getBasedir().toPath().resolve("src/main/java").normalize();
+    }
+
+    private static boolean isGeneratedOrBuildOutputRoot(MavenProject project, Path sourceRoot) {
+        Path basedir = project.getBasedir().toPath().normalize();
+        return isUnder(sourceRoot, basedir.resolve("target").normalize())
+                || isUnder(sourceRoot, basedir.resolve("build").normalize())
+                || isUnder(sourceRoot, basedir.resolve("out").normalize())
+                || hasGeneratedSegment(basedir, sourceRoot);
+    }
+
+    private static boolean isUnder(Path path, Path parent) {
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        Path normalizedParent = parent.toAbsolutePath().normalize();
+        return normalizedPath.equals(normalizedParent) || normalizedPath.startsWith(normalizedParent);
+    }
+
+    private static boolean hasGeneratedSegment(Path basedir, Path sourceRoot) {
+        Path relativeRoot = sourceRoot.startsWith(basedir) ? basedir.relativize(sourceRoot) : sourceRoot;
+        for (Path segment : relativeRoot) {
+            if (segment.toString().toLowerCase(Locale.ROOT).contains("generated")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Path executionRoot() {

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SourceFileFinderTest {
 
@@ -58,6 +59,68 @@ class SourceFileFinderTest {
         List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir.resolve("src/main/java"));
 
         assertEquals(List.of(source), files);
+    }
+
+    @Test
+    void supportsConfiguredRelativeSourceRoots() throws Exception {
+        Path customSourceRoot = tempDir.resolve("src/java/demo");
+        Files.createDirectories(customSourceRoot);
+        Path customSource = customSourceRoot.resolve("Sample.java");
+        Files.writeString(customSource, "class Sample {}\n");
+
+        Path defaultSourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(defaultSourceRoot);
+        Files.writeString(defaultSourceRoot.resolve("DefaultSample.java"), "class DefaultSample {}\n");
+
+        Path nestedModuleSourceRoot = tempDir.resolve("module-a/src/java/demo");
+        Files.createDirectories(nestedModuleSourceRoot);
+        Path nestedModuleSource = nestedModuleSourceRoot.resolve("NestedSample.java");
+        Files.writeString(nestedModuleSource, "class NestedSample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(tempDir, List.of(Path.of("src/java")));
+
+        assertEquals(List.of(nestedModuleSource, customSource), files);
+    }
+
+    @Test
+    void supportsConfiguredAbsoluteSourceRootsUnderSearchedRoot() throws Exception {
+        Path customSourceRoot = tempDir.resolve("src/java/demo");
+        Files.createDirectories(customSourceRoot);
+        Path customSource = customSourceRoot.resolve("Sample.java");
+        Files.writeString(customSource, "class Sample {}\n");
+
+        Path defaultSourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(defaultSourceRoot);
+        Files.writeString(defaultSourceRoot.resolve("DefaultSample.java"), "class DefaultSample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(
+                tempDir,
+                List.of(tempDir.resolve("src/java"))
+        );
+
+        assertEquals(List.of(customSource), files);
+    }
+
+    @Test
+    void rejectsConfiguredAbsoluteSourceRootsOutsideSearchedRoot() throws Exception {
+        Path projectRoot = tempDir.resolve("project");
+        Files.createDirectories(projectRoot);
+
+        Path externalSourceRoot = tempDir.resolve("external-src/demo");
+        Files.createDirectories(externalSourceRoot);
+
+        IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> SourceFileFinder.findAllJavaFilesUnderSourceRoots(
+                        projectRoot,
+                        List.of(tempDir.resolve("external-src"))
+                )
+        );
+
+        assertEquals(
+                "Absolute source root must be under the analyzed path: " + tempDir.resolve("external-src"),
+                thrown.getMessage()
+        );
     }
 }
 

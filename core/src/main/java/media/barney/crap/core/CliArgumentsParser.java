@@ -37,6 +37,7 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
+                    state.sourceRoots,
                     List.of(),
                     state.exclusionOptions
             );
@@ -55,6 +56,7 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
+                    state.sourceRoots,
                     List.of(),
                     state.exclusionOptions
             );
@@ -70,6 +72,7 @@ final class CliArgumentsParser {
                     state.omitRedundancy,
                     state.outputPath,
                     state.junitReportPath,
+                    state.sourceRoots,
                     List.of(),
                     state.exclusionOptions
             );
@@ -84,6 +87,7 @@ final class CliArgumentsParser {
                 state.omitRedundancy,
                 state.outputPath,
                 state.junitReportPath,
+                state.sourceRoots,
                 List.copyOf(values),
                 state.exclusionOptions
         );
@@ -144,15 +148,23 @@ final class CliArgumentsParser {
 
     private static int parseValuedOption(String[] args, int index, ParseStateBuilder state, String arg) {
         AssignedOption option = AssignedOption.parse(arg);
-        if (parseBuildToolOption(args, index, state, option)
-                || parseReportFormatOption(args, index, state, option)
-                || parseOutputOption(args, index, state, option)
-                || parseJunitReportOption(args, index, state, option)
+        if (parseGeneralValuedOption(args, index, state, option)
                 || parseThresholdOption(args, index, state, option)
                 || parseExclusionOption(args, index, state, option)) {
             return option.hasInlineValue() ? index : index + 1;
         }
         throw new IllegalArgumentException("Unknown option: " + arg);
+    }
+
+    private static boolean parseGeneralValuedOption(String[] args,
+                                                    int index,
+                                                    ParseStateBuilder state,
+                                                    AssignedOption option) {
+        return parseBuildToolOption(args, index, state, option)
+                || parseReportFormatOption(args, index, state, option)
+                || parseOutputOption(args, index, state, option)
+                || parseJunitReportOption(args, index, state, option)
+                || parseSourceRootOption(args, index, state, option);
     }
 
     private static boolean parseBuildToolOption(String[] args,
@@ -210,6 +222,17 @@ final class CliArgumentsParser {
         if ("--threshold".equals(option.name())) {
             state.threshold = parseThreshold(args, index, option, state.thresholdSeen);
             state.thresholdSeen = true;
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean parseSourceRootOption(String[] args,
+                                                 int index,
+                                                 ParseStateBuilder state,
+                                                 AssignedOption option) {
+        if ("--source-root".equals(option.name())) {
+            state.sourceRoots.add(parseListOption(args, index, option, "a source root path"));
             return true;
         }
         return false;
@@ -366,6 +389,7 @@ final class CliArgumentsParser {
                               @Nullable String outputPath,
                               @Nullable String junitReportPath,
                               SourceExclusionOptions exclusionOptions,
+                              List<String> sourceRoots,
                               List<String> fileArgs) {
     }
 
@@ -393,6 +417,7 @@ final class CliArgumentsParser {
         private boolean outputPathSeen;
         private @Nullable String junitReportPath;
         private boolean junitReportPathSeen;
+        private final List<String> sourceRoots = new ArrayList<>();
         private final List<String> values = new ArrayList<>();
 
         private ParseState build() {
@@ -415,6 +440,7 @@ final class CliArgumentsParser {
                             excludeAnnotations,
                             useDefaultExclusions
                     ),
+                    List.copyOf(sourceRoots),
                     values
             );
         }

@@ -130,11 +130,17 @@ final class CliApplication {
 
     private List<Path> filesForMode(CliArguments parsed) throws Exception {
         return switch (parsed.mode()) {
-            case ALL_SRC -> SourceFileFinder.findAllJavaFilesUnderSourceRoots(projectRoot);
-            case CHANGED_SRC -> ChangedFileDetector.changedJavaFilesUnderSourceRoots(projectRoot);
-            case EXPLICIT_FILES -> explicitFiles(parsed.fileArgs());
+            case ALL_SRC -> SourceFileFinder.findAllJavaFilesUnderSourceRoots(projectRoot, sourceRoots(parsed));
+            case CHANGED_SRC -> ChangedFileDetector.changedJavaFilesUnderSourceRoots(projectRoot, sourceRoots(parsed));
+            case EXPLICIT_FILES -> explicitFiles(parsed.fileArgs(), sourceRoots(parsed));
             case HELP -> List.of();
         };
+    }
+
+    private List<Path> sourceRoots(CliArguments parsed) {
+        return parsed.sourceRoots().stream()
+                .map(sourceRoot -> Path.of(sourceRoot).normalize())
+                .toList();
     }
 
     private ReportOptions reportOptions(CliArguments parsed) {
@@ -155,7 +161,7 @@ final class CliApplication {
         return projectRoot.resolve(path).normalize();
     }
 
-    private List<Path> explicitFiles(List<String> args) throws Exception {
+    private List<Path> explicitFiles(List<String> args, List<Path> sourceRoots) throws Exception {
         Set<Path> files = new LinkedHashSet<>();
         for (String arg : args) {
             Path path = projectRoot.resolve(arg).normalize();
@@ -163,7 +169,7 @@ final class CliApplication {
                 throw new IllegalArgumentException("Path does not exist: " + arg);
             }
             if (Files.isDirectory(path)) {
-                files.addAll(SourceFileFinder.findAllJavaFilesUnderSourceRoots(path));
+                files.addAll(SourceFileFinder.findAllJavaFilesUnderSourceRoots(path, sourceRoots));
             } else if (Files.isRegularFile(path)) {
                 files.add(path);
             } else {
