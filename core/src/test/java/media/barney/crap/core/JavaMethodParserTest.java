@@ -15,8 +15,10 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -114,6 +116,35 @@ class JavaMethodParserTest {
         List<MethodDescriptor> methods = JavaMethodParser.parse("demo.Sample", source);
 
         assertEquals(List.of(new MethodDescriptor("demo.Sample", "helper", 4, 6, 1)), methods);
+    }
+
+    @Test
+    void failsOnParseErrorsInsteadOfReturningPartialMethods() {
+        String source = """
+                package demo;
+
+                class Broken {
+                    int partial() {
+                        if (true) {
+                            return 1;
+                    }
+                """;
+
+        JavaMethodParser.JavaMethodParseException thrown = assertThrows(
+                JavaMethodParser.JavaMethodParseException.class,
+                () -> JavaMethodParser.parse("demo.Broken", source)
+        );
+
+        String message = requireNonNull(thrown.getMessage());
+        assertTrue(message.contains("Unable to parse Java source demo/Broken.java:"));
+        assertTrue(message.contains("line "));
+    }
+
+    @Test
+    void formatsUnknownDiagnosticLocationsWithoutNegativeColumns() {
+        assertEquals("unknown location", JavaMethodParser.formatDiagnosticLocation(-1, -1));
+        assertEquals("line 5", JavaMethodParser.formatDiagnosticLocation(5, -1));
+        assertEquals("line 5, column 7", JavaMethodParser.formatDiagnosticLocation(5, 7));
     }
 
     @Test
