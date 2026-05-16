@@ -160,6 +160,40 @@ class CrapJavaCheckMojoTest {
     }
 
     @Test
+    void filtersCompileSourceRootsOutsideExecutionRootWhenPassingSourceRootsToCli() throws Exception {
+        Path root = tempDir.resolve("root");
+        Path module = root.resolve("module-a");
+        Path sourceRoot = module.resolve("src/java");
+        Path externalModule = tempDir.resolve("external-module");
+        Path externalSourceRoot = externalModule.resolve("src/java");
+        Files.createDirectories(sourceRoot);
+        Files.createDirectories(externalSourceRoot);
+        writeCoverageReport(module);
+
+        RecordingRunner runner = new RecordingRunner();
+        CrapJavaCheckMojo mojo = mojo(runner);
+        MavenProject moduleProject = project(module, "module-a");
+        moduleProject.addCompileSourceRoot(sourceRoot.toString());
+        MavenProject externalProject = project(externalModule, "external-module");
+        externalProject.addCompileSourceRoot(externalSourceRoot.toString());
+        setField(mojo, "session", session(List.of(project(root, "root"), moduleProject, externalProject), root));
+        setField(mojo, "project", externalProject);
+
+        mojo.execute();
+
+        assertEquals(List.of(
+                "--format",
+                "none",
+                "--source-root",
+                sourceRoot.toString(),
+                "--threshold",
+                "8.0",
+                "--junit-report",
+                root.resolve("target/crap-java/TEST-crap-java.xml").toString()
+        ), List.of(runner.args));
+    }
+
+    @Test
     void routesRunnerOutputThroughMavenLog() throws Exception {
         Path root = tempDir.resolve("root");
         writeCoverageReport(root);

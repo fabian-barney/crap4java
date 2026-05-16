@@ -52,10 +52,15 @@ final class SourceFileFinder {
             throws IOException {
         List<Path> sourceRoots = new ArrayList<>();
         sourceRoots.addAll(existingAbsoluteSourceRootsUnder(projectRoot, configuredSourceRoots));
+        List<Path> relativeConfiguredSourceRoots = relativeConfiguredSourceRoots(configuredSourceRoots);
+        if (!ProductionSourceRoots.usesDefaultSourceRoots(configuredSourceRoots)
+                && relativeConfiguredSourceRoots.isEmpty()) {
+            return distinctSorted(sourceRoots);
+        }
         Files.walkFileTree(projectRoot, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                if (ProductionSourceRoots.matchesAnyCustomSourceRoot(dir, configuredSourceRoots)) {
+                if (ProductionSourceRoots.matchesAnyCustomSourceRoot(dir, relativeConfiguredSourceRoots)) {
                     sourceRoots.add(dir.normalize());
                     return FileVisitResult.SKIP_SUBTREE;
                 }
@@ -70,7 +75,11 @@ final class SourceFileFinder {
                 return FileVisitResult.CONTINUE;
             }
         });
-        return sourceRoots.stream()
+        return distinctSorted(sourceRoots);
+    }
+
+    private static List<Path> distinctSorted(List<Path> paths) {
+        return paths.stream()
                 .distinct()
                 .sorted()
                 .toList();
@@ -83,6 +92,13 @@ final class SourceFileFinder {
                 .filter(Path::isAbsolute)
                 .peek(sourceRoot -> validateSourceRootUnderProjectRoot(normalizedProjectRoot, sourceRoot))
                 .filter(Files::isDirectory)
+                .toList();
+    }
+
+    private static List<Path> relativeConfiguredSourceRoots(List<Path> configuredSourceRoots) {
+        return configuredSourceRoots.stream()
+                .map(Path::normalize)
+                .filter(sourceRoot -> !sourceRoot.isAbsolute())
                 .toList();
     }
 

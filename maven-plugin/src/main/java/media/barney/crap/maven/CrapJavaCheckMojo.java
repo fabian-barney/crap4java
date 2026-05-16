@@ -138,7 +138,7 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         addRepeated(args, "--exclude", excludesProperty, excludes);
         addRepeated(args, "--exclude-class", excludeClassesProperty, excludeClasses);
         addRepeated(args, "--exclude-annotation", excludeAnnotationsProperty, excludeAnnotations);
-        addRepeated(args, "--source-root", null, sourceRootArguments());
+        addRepeated(args, "--source-root", null, sourceRootArguments(executionRoot));
         if (!useDefaultExclusions) {
             args.add("--use-default-exclusions=false");
         }
@@ -307,9 +307,10 @@ public class CrapJavaCheckMojo extends AbstractMojo {
 
     private List<Path> missingCoverageReports() {
         List<Path> missingReports = new ArrayList<>();
+        Path executionRoot = executionRoot();
         for (MavenProject reactorProject : reactorProjects()) {
             Path basedir = reactorProject.getBasedir().toPath().normalize();
-            if (!analyzableCompileSourceRoots(reactorProject).isEmpty()
+            if (!analyzableCompileSourceRoots(reactorProject, executionRoot).isEmpty()
                     && !Files.exists(basedir.resolve("target/site/jacoco/jacoco.xml"))) {
                 missingReports.add(basedir.resolve("target/site/jacoco/jacoco.xml"));
             }
@@ -322,26 +323,27 @@ public class CrapJavaCheckMojo extends AbstractMojo {
         return projects == null || projects.isEmpty() ? List.of(project()) : projects;
     }
 
-    private List<String> sourceRootArguments() {
-        if (!hasCustomCompileSourceRoot()) {
+    private List<String> sourceRootArguments(Path executionRoot) {
+        if (!hasCustomCompileSourceRoot(executionRoot)) {
             return List.of();
         }
         return reactorProjects().stream()
-                .flatMap(project -> analyzableCompileSourceRoots(project).stream())
+                .flatMap(project -> analyzableCompileSourceRoots(project, executionRoot).stream())
                 .map(Path::toString)
                 .distinct()
                 .toList();
     }
 
-    private boolean hasCustomCompileSourceRoot() {
+    private boolean hasCustomCompileSourceRoot(Path executionRoot) {
         return reactorProjects().stream()
-                .anyMatch(project -> analyzableCompileSourceRoots(project).stream()
+                .anyMatch(project -> analyzableCompileSourceRoots(project, executionRoot).stream()
                         .anyMatch(sourceRoot -> !sourceRoot.equals(defaultSourceRoot(project))));
     }
 
-    private static List<Path> analyzableCompileSourceRoots(MavenProject project) {
+    private static List<Path> analyzableCompileSourceRoots(MavenProject project, Path executionRoot) {
         return compileSourceRoots(project).stream()
                 .filter(Files::isDirectory)
+                .filter(sourceRoot -> isUnder(sourceRoot, executionRoot))
                 .filter(sourceRoot -> !isGeneratedOrBuildOutputRoot(project, sourceRoot))
                 .toList();
     }
@@ -371,7 +373,9 @@ public class CrapJavaCheckMojo extends AbstractMojo {
     }
 
     private static boolean isUnder(Path path, Path parent) {
-        return path.equals(parent) || path.startsWith(parent);
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        Path normalizedParent = parent.toAbsolutePath().normalize();
+        return normalizedPath.equals(normalizedParent) || normalizedPath.startsWith(normalizedParent);
     }
 
     private static boolean hasGeneratedSegment(Path basedir, Path sourceRoot) {

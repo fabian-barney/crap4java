@@ -83,6 +83,25 @@ class SourceFileFinderTest {
     }
 
     @Test
+    void supportsConfiguredAbsoluteSourceRootsUnderSearchedRoot() throws Exception {
+        Path customSourceRoot = tempDir.resolve("src/java/demo");
+        Files.createDirectories(customSourceRoot);
+        Path customSource = customSourceRoot.resolve("Sample.java");
+        Files.writeString(customSource, "class Sample {}\n");
+
+        Path defaultSourceRoot = tempDir.resolve("src/main/java/demo");
+        Files.createDirectories(defaultSourceRoot);
+        Files.writeString(defaultSourceRoot.resolve("DefaultSample.java"), "class DefaultSample {}\n");
+
+        List<Path> files = SourceFileFinder.findAllJavaFilesUnderSourceRoots(
+                tempDir,
+                List.of(tempDir.resolve("src/java"))
+        );
+
+        assertEquals(List.of(customSource), files);
+    }
+
+    @Test
     void rejectsConfiguredAbsoluteSourceRootsOutsideSearchedRoot() throws Exception {
         Path projectRoot = tempDir.resolve("project");
         Files.createDirectories(projectRoot);
