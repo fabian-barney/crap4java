@@ -93,7 +93,7 @@ record ProjectModule(Path moduleRoot, Path executionRoot, BuildTool buildTool) {
     }
 
     private String gradleLauncher() {
-        return launcher("gradlew.bat", "gradlew", "gradle");
+        return launcher("gradlew.bat", "gradlew", isWindows() ? "gradle.bat" : "gradle");
     }
 
     private String launcher(String windowsWrapper, String unixWrapper, String fallback) {
